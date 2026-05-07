@@ -74,8 +74,8 @@ export function summarizePeriod(
   const sorted = [...measuredDays].sort((left, right) => (left.usageValue ?? 0) - (right.usageValue ?? 0));
 
   return {
-    totalUsage: roundToOne(totalUsage),
-    averageDailyUsage: roundToOne(averageDailyUsage),
+    totalUsage: roundToTwo(totalUsage),
+    averageDailyUsage: roundToTwo(averageDailyUsage),
     estimatedMonthlyBillUgx: calculateEstimatedMonthlyBillUgx(usagePoints, today, billingMonthAnchor),
     unit,
     lowestUsageDay: sorted[0]?.key,
@@ -151,8 +151,8 @@ export function describeSummaryDate(value?: string): string {
   }).format(date);
 }
 
-function roundToOne(value: number): number {
-  return Math.round(value * 10) / 10;
+function roundToTwo(value: number): number {
+  return Math.round(value * 100) / 100;
 }
 
 function calculateTieredEnergyCharge(usageKwh: number): number {
