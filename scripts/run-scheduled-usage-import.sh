@@ -18,17 +18,29 @@ fail_reason=""
 lock_dir=""
 lock_acquired="false"
 
-send_failure_alert() {
+send_notification_email() {
+  local status="$1"
+  local subject="$2"
+  local body="$3"
+
   if [[ -z "${USAGE_IMPORT_ALERT_EMAIL_TO:-}" ]]; then
-    log "WARN" "Skipping failure alert because USAGE_IMPORT_ALERT_EMAIL_TO is not configured."
+    log "WARN" "Skipping ${status} alert because USAGE_IMPORT_ALERT_EMAIL_TO is not configured."
     return 0
   fi
 
   if [[ -z "${USAGE_IMPORT_SMTP_HOST:-}" || -z "${USAGE_IMPORT_SMTP_PORT:-}" || -z "${USAGE_IMPORT_SMTP_USER:-}" || -z "${USAGE_IMPORT_SMTP_PASSWORD:-}" || -z "${USAGE_IMPORT_SMTP_FROM:-}" ]]; then
-    log "WARN" "Skipping failure alert because SMTP settings are incomplete."
+    log "WARN" "Skipping ${status} alert because SMTP settings are incomplete."
     return 0
   fi
 
+  if ALERT_EMAIL_SUBJECT="${subject}" ALERT_EMAIL_BODY="${body}" node "${REPO_ROOT}/scripts/send-smtp-email.js"; then
+    log "INFO" "Sent ${status} alert email to ${USAGE_IMPORT_ALERT_EMAIL_TO}."
+  else
+    log "ERROR" "Failed to send ${status} alert email."
+  fi
+}
+
+send_failure_alert() {
   local subject="NFE usage import failed on $(hostname) at ${RUN_TIMESTAMP}"
   local body
   body="$(cat <<EOF
@@ -44,11 +56,23 @@ $(tail -n 40 "${RUN_LOG_PATH}" 2>/dev/null || true)
 EOF
 )"
 
-  if ALERT_EMAIL_SUBJECT="${subject}" ALERT_EMAIL_BODY="${body}" node "${REPO_ROOT}/scripts/send-smtp-email.js"; then
-    log "INFO" "Sent failure alert email to ${USAGE_IMPORT_ALERT_EMAIL_TO}."
-  else
-    log "ERROR" "Failed to send failure alert email."
-  fi
+  send_notification_email "failure" "${subject}" "${body}"
+}
+
+send_success_alert() {
+  local subject="NFE usage import succeeded on $(hostname) at ${RUN_TIMESTAMP}"
+  local body
+  body="$(cat <<EOF
+The scheduled usage import completed successfully.
+
+Timestamp: ${RUN_TIMESTAMP}
+Host import path: ${USAGE_IMPORT_HOST_DIR:-unset}
+Allowed meters: ${USAGE_IMPORT_ALLOWED_METERS:-unset}
+Run log: ${RUN_LOG_PATH}
+EOF
+)"
+
+  send_notification_email "success" "${subject}" "${body}"
 }
 
 cleanup() {
@@ -202,3 +226,4 @@ fi
 
 record_success_today
 log "INFO" "Scheduled usage import finished successfully."
+send_success_alert

@@ -94,6 +94,8 @@ Failure alerts:
 - failure emails go to `aaron.tushabe@nearlyfreeenergy.com`
 - the alert uses the configured SMTP settings
 - the email includes the failure reason, import path, and recent log output
+- successful imports also send an email to `aaron.tushabe@nearlyfreeenergy.com`
+- duplicate on-load skips stay quiet; they do not send email
 
 ## Import rules
 
