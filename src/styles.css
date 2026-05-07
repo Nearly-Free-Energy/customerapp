@@ -247,63 +247,6 @@ h1 {
   color: #153f5c;
 }
 
-.selected-usage-panel {
-  margin-top: 16px;
-  margin-bottom: 22px;
-  padding: 18px 20px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  border-radius: 24px;
-  background: linear-gradient(180deg, rgba(35, 95, 138, 0.98), rgba(23, 68, 101, 0.98));
-  color: #f1f8fc;
-  box-shadow: 0 20px 34px rgba(22, 59, 85, 0.18);
-}
-
-.selected-usage-panel__eyebrow {
-  display: block;
-  margin-bottom: 6px;
-  color: rgba(217, 236, 246, 0.76);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.selected-usage-panel__title {
-  margin: 0;
-  font-size: 1.2rem;
-  color: #fff;
-}
-
-.selected-usage-panel__status {
-  margin: 8px 0 0;
-  color: rgba(228, 242, 250, 0.78);
-  font-size: 0.95rem;
-}
-
-.selected-usage-panel__reading {
-  min-width: 0;
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  font-variant-numeric: tabular-nums;
-}
-
-.selected-usage-panel__value {
-  font-size: clamp(2rem, 4vw, 2.8rem);
-  line-height: 1;
-}
-
-.selected-usage-panel__unit {
-  color: rgba(228, 242, 250, 0.82);
-  font-size: 0.92rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .account-overview {
   display: grid;
   gap: 18px;
@@ -655,13 +598,6 @@ h1 {
   .day-cell--outside .day-cell__usage,
   .day-cell--muted .day-cell__usage {
     opacity: 0;
-  }
-
-  .selected-usage-panel {
-    padding: 16px;
-    border-radius: 20px;
-    flex-direction: column;
-    align-items: flex-start;
   }
 
   .bottom-tray {

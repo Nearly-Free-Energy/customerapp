@@ -6,8 +6,7 @@ import { UsageSummary } from '../../../components/UsageSummary';
 import { MonthlyCalendar } from '../../../components/MonthlyCalendar';
 import { WeeklyCalendar } from '../../../components/WeeklyCalendar';
 import type { UtilityService } from '../../../models/customer';
-import type { UsageApiResponse, UsageCalendarDay, UsageCalendarView } from '../../../models/usage';
-import { SelectedUsagePanel } from './SelectedUsagePanel';
+import type { UsageApiResponse, UsageCalendarView } from '../../../models/usage';
 import { addDays, addMonths, endOfWeek, formatMonthYear, formatWeekRange, parseIsoDate, startOfWeek } from '../../../utils/date';
 import { buildUsageLookup, getMonthDays, getWeekDays, summarizePeriod } from '../../../utils/usage';
 
@@ -88,7 +87,6 @@ export function UsageOverview({ accessToken, services }: UsageOverviewProps) {
   const monthDays = getMonthDays(anchorDate, usageLookup, usageToday, fallbackUnit);
   const visibleDays = view === 'week' ? weekDays : monthDays.filter((day) => day.isCurrentMonth);
   const summary = summarizePeriod(visibleDays, usagePoints, usageToday, anchorDate);
-  const selectedDay = visibleDays.find((day) => day.key === selectedDayKey) ?? findDefaultSelectedDay(visibleDays, anchorDate);
   const periodLabel =
     view === 'week' ? formatWeekRange(startOfWeek(anchorDate), endOfWeek(anchorDate)) : formatMonthYear(anchorDate);
 
@@ -139,8 +137,6 @@ export function UsageOverview({ accessToken, services }: UsageOverviewProps) {
         <MonthlyCalendar days={monthDays} selectedKey={selectedDayKey} onSelect={setSelectedDayKey} />
       )}
 
-      <SelectedUsagePanel day={selectedDay} />
-
       <BottomControlTray
         label={periodLabel}
         view={view}
@@ -150,18 +146,4 @@ export function UsageOverview({ accessToken, services }: UsageOverviewProps) {
       />
     </>
   );
-}
-
-function findDefaultSelectedDay(days: UsageCalendarDay[], anchorDate: Date) {
-  const currentMonthDay = days.find((day) => day.date.getDate() === anchorDate.getDate() && !day.isFuture);
-  if (currentMonthDay) {
-    return currentMonthDay;
-  }
-
-  const firstMeasuredDay = days.find((day) => day.usageValue !== null && !day.isFuture);
-  if (firstMeasuredDay) {
-    return firstMeasuredDay;
-  }
-
-  return days[0];
 }
