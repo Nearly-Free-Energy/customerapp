@@ -110,6 +110,25 @@ describe('usage import helpers', () => {
     ]);
   });
 
+  it('parses CSV rows that use energy_total_kWh', () => {
+    const records = parseUsageCsv(
+      `timestamp,meter_id,energy_total_kWh\n2026-03-22 00:00:00,100,3953.83\n2026-03-22 00:15:00,100,3954.12\n`,
+    );
+
+    expect(records).toEqual([
+      {
+        timestamp: '2026-03-22 00:00:00',
+        meterId: '100',
+        energyTotal: 3953.83,
+      },
+      {
+        timestamp: '2026-03-22 00:15:00',
+        meterId: '100',
+        energyTotal: 3954.12,
+      },
+    ]);
+  });
+
   it('imports daily usage snapshots by timestamp date even when a file crosses midnight', async () => {
     tempDirectory = await mkdtemp(path.join(os.tmpdir(), 'nfe-usage-import-'));
     const csvPath = path.join(tempDirectory, 'meter_001_2026-03-22.csv');

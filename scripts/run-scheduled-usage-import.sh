@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-DEFAULT_HOST_DIR="$(cd "${REPO_ROOT}/.." && pwd)/meter_data"
+DEFAULT_HOST_DIR="$(cd "${REPO_ROOT}/.." && pwd)/Sezibwa Rentals/Customer_data/meter_100"
 
 cd "${REPO_ROOT}"
 

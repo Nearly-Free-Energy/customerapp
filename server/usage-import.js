@@ -2,7 +2,8 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { createServerSupabaseClient } from './supabase-admin.js';
 
-const REQUIRED_COLUMNS = ['timestamp', 'meter_id', 'energy_total'];
+const REQUIRED_COLUMNS = ['timestamp', 'meter_id'];
+const ENERGY_TOTAL_COLUMNS = ['energy_total', 'energy_total_kWh'];
 
 export function resolveUsageImportConfig(env = process.env) {
   const importDirectory = env.USAGE_IMPORT_DIR || '/data/import';
@@ -112,10 +113,14 @@ export function parseUsageCsv(csvContent) {
       throw new Error(`CSV is missing required column "${column}".`);
     }
   }
+  const energyTotalColumn = ENERGY_TOTAL_COLUMNS.find((column) => headers.includes(column));
+  if (!energyTotalColumn) {
+    throw new Error(`CSV is missing required energy total column. Expected one of: ${ENERGY_TOTAL_COLUMNS.join(', ')}.`);
+  }
 
   const timestampIndex = headers.indexOf('timestamp');
   const meterIdIndex = headers.indexOf('meter_id');
-  const energyTotalIndex = headers.indexOf('energy_total');
+  const energyTotalIndex = headers.indexOf(energyTotalColumn);
 
   return lines.slice(1).map((line, index) => {
     const values = parseCsvLine(line);
@@ -132,7 +137,7 @@ export function parseUsageCsv(csvContent) {
     }
 
     if (!Number.isFinite(energyTotal)) {
-      throw new Error(`Row ${index + 2} has an invalid energy_total value.`);
+      throw new Error(`Row ${index + 2} has an invalid ${energyTotalColumn} value.`);
     }
 
     return {

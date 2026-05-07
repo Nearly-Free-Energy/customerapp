@@ -19,7 +19,7 @@ USAGE_IMPORT_FORCE_FULL_SYNC=false
 For host-side Docker runs, also set:
 
 ```bash
-USAGE_IMPORT_HOST_DIR="/absolute/path/to/Nextcloud/meters"
+USAGE_IMPORT_HOST_DIR="/Users/atushabe/NearlyFreeEnergy/Sezibwa Rentals/Customer_data/meter_100"
 ```
 
 ## Manual backfill / validation
