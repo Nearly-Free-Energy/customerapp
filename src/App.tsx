@@ -42,7 +42,11 @@ function App() {
         path="/usage"
         element={
           <DashboardScreen email={signedInState.email} accountName={accountName} onSignOut={handleSignOut}>
-            <UsageOverview accessToken={signedInState.session.access_token} services={signedInState.services} />
+            <UsageOverview
+              accessToken={signedInState.session.access_token}
+              accounts={signedInState.accounts}
+              services={signedInState.services}
+            />
           </DashboardScreen>
         }
       />

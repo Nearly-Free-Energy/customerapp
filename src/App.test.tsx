@@ -156,6 +156,12 @@ describe('Electricity consumption dashboard', () => {
           displayName: 'Customer Demo Account',
           status: 'active',
         },
+        {
+          id: 'account-other',
+          accountNumber: 'customer-other',
+          displayName: 'Ntale Peter',
+          status: 'active',
+        },
       ],
       services: [
         {
@@ -258,6 +264,12 @@ describe('Electricity consumption dashboard', () => {
           displayName: 'Customer Demo Account',
           status: 'active',
         },
+        {
+          id: 'account-other',
+          accountNumber: 'customer-other',
+          displayName: 'Ntale Peter',
+          status: 'active',
+        },
       ],
       services: [
         {
@@ -270,7 +282,7 @@ describe('Electricity consumption dashboard', () => {
         },
         {
           id: 'service-b',
-          utilityAccountId: 'account-demo',
+          utilityAccountId: 'account-other',
           serviceType: 'electric',
           serviceName: 'Electric Service • 200326019929',
           serviceAddress: null,
@@ -296,6 +308,8 @@ describe('Electricity consumption dashboard', () => {
 
     const selector = await screen.findByLabelText('Service');
     expect(selector).toBeInTheDocument();
+    expect(within(selector).getByRole('option', { name: 'Customer - Electric Service • 221123297561' })).toBeInTheDocument();
+    expect(within(selector).getByRole('option', { name: 'Ntale - Electric Service • 200326019929' })).toBeInTheDocument();
     expect(apiMocks.getUsage).toHaveBeenCalledWith('test-token', 'service-a');
 
     apiMocks.getUsage.mockResolvedValueOnce({

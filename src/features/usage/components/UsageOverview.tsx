@@ -5,7 +5,7 @@ import { BottomControlTray } from '../../../components/BottomControlTray';
 import { UsageSummary } from '../../../components/UsageSummary';
 import { MonthlyCalendar } from '../../../components/MonthlyCalendar';
 import { WeeklyCalendar } from '../../../components/WeeklyCalendar';
-import type { UtilityService } from '../../../models/customer';
+import type { UtilityAccount, UtilityService } from '../../../models/customer';
 import type { UsageApiResponse, UsageCalendarView } from '../../../models/usage';
 import { addDays, addMonths, endOfWeek, formatMonthYear, formatWeekRange, parseIsoDate, startOfWeek } from '../../../utils/date';
 import { buildUsageLookup, getMonthDays, getWeekDays, summarizePeriod } from '../../../utils/usage';
@@ -14,10 +14,11 @@ const INITIAL_ANCHOR_DATE = parseIsoDate('2026-03-22');
 
 type UsageOverviewProps = {
   accessToken: string;
+  accounts: UtilityAccount[];
   services: UtilityService[];
 };
 
-export function UsageOverview({ accessToken, services }: UsageOverviewProps) {
+export function UsageOverview({ accessToken, accounts, services }: UsageOverviewProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState<UsageCalendarView>('month');
   const [anchorDate, setAnchorDate] = useState<Date>(INITIAL_ANCHOR_DATE);
@@ -99,6 +100,12 @@ export function UsageOverview({ accessToken, services }: UsageOverviewProps) {
     setSearchParams({ serviceId: nextServiceId });
   }
 
+  function formatServiceOptionLabel(service: UtilityService) {
+    const owningAccount = accounts.find((account) => account.id === service.utilityAccountId);
+    const firstName = owningAccount?.displayName.trim().split(/\s+/)[0];
+    return firstName ? `${firstName} - ${service.serviceName}` : service.serviceName;
+  }
+
   return (
     <>
       {isLoadingUsage ? <p className="usage-status-message">Loading usage history...</p> : null}
@@ -122,7 +129,7 @@ export function UsageOverview({ accessToken, services }: UsageOverviewProps) {
           >
             {electricServices.map((service) => (
               <option key={service.id} value={service.id}>
-                {service.serviceName}
+                {formatServiceOptionLabel(service)}
               </option>
             ))}
           </select>
