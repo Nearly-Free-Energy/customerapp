@@ -100,6 +100,8 @@ export function UsageOverview({ accessToken, accounts, services, previewUsageDat
   const visibleDays = monthDays.filter((day) => day.isCurrentMonth);
   const summary = summarizePeriod(visibleDays, usagePoints, usageToday, anchorDate);
   const periodLabel = formatMonthYear(anchorDate);
+  const isViewingCurrentMonth =
+    anchorDate.getFullYear() === usageToday.getFullYear() && anchorDate.getMonth() === usageToday.getMonth();
 
   function handleNavigate(step: -1 | 1) {
     setSelectedDayKey(undefined);
@@ -154,6 +156,7 @@ export function UsageOverview({ accessToken, accounts, services, previewUsageDat
         label={periodLabel}
         onPrevious={() => handleNavigate(-1)}
         onNext={() => handleNavigate(1)}
+        canNavigateNext={!isViewingCurrentMonth}
       />
     </>
   );

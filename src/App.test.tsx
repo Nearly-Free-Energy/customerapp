@@ -339,14 +339,20 @@ describe('Electricity consumption dashboard', () => {
     expect(screen.getByText('Mar 2026')).toBeInTheDocument();
   });
 
-  it('navigates periods forward by month', async () => {
+  it('disables future-month navigation while allowing a return from past months', async () => {
     const user = userEvent.setup();
     renderApp();
 
     await screen.findByLabelText('Monthly utility usage');
-    await user.click(screen.getByRole('button', { name: 'Next period' }));
+    expect(screen.getByRole('button', { name: 'Next period' })).toBeDisabled();
 
-    expect(screen.getByText('Apr 2026')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Previous period' }));
+    expect(screen.getByText('Feb 2026')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Next period' })).toBeEnabled();
+
+    await user.click(screen.getByRole('button', { name: 'Next period' }));
+    expect(screen.getByText('Mar 2026')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Next period' })).toBeDisabled();
   });
 
   it('uses only the selected calendar month for all summary cards in month view', async () => {
