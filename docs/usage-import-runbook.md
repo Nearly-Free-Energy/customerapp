@@ -14,7 +14,7 @@ SUPABASE_SERVICE_ROLE_KEY=...
 USAGE_IMPORT_DIR=/data/import
 USAGE_IMPORT_REPROCESS_DAYS=3
 USAGE_IMPORT_FORCE_FULL_SYNC=false
-USAGE_IMPORT_ALLOWED_METERS=100,2,3,5,6,9,10
+USAGE_IMPORT_ALLOWED_METERS=100,2,3,4,5,6,9,10
 ```
 
 For host-side Docker runs, also set:
@@ -59,7 +59,7 @@ Current behavior on this laptop:
 - skip if a successful import has already completed that calendar day
 - keep the import mount read-only
 - keep `USAGE_IMPORT_REPROCESS_DAYS=3` so corrected or late files are reprocessed
-- keep `USAGE_IMPORT_ALLOWED_METERS=100,2,3,5,6,9,10`
+- keep `USAGE_IMPORT_ALLOWED_METERS=100,2,3,4,5,6,9,10`
 - require the newest eligible CSV file to be at least `15 minutes` old
 - use `USAGE_IMPORT_FORCE_FULL_SYNC=true` only for explicit backfills
 - on this laptop, the `launchd` job calls `scripts/run-scheduled-usage-import.sh`
@@ -86,7 +86,7 @@ The wrapper will fail fast if:
 - Docker Desktop is not running
 - `SUPABASE_URL` or `SUPABASE_SERVICE_ROLE_KEY` is missing
 - the import folder is missing or unreadable
-- no eligible CSV files are found for meters `100,2,3,5,6,9,10`
+- no eligible CSV files are found for meters `100,2,3,4,5,6,9,10`
 - the newest eligible CSV file is too recent and sync may still be in progress
 
 Failure alerts:
