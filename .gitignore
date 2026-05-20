@@ -9,3 +9,4 @@ test-results/
 .env
 .vercel
 supabase/.temp/
+config/billing-meter-map.json
