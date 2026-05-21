@@ -12,7 +12,8 @@
     "db:migrate:customers": "node scripts/migrate-customer-map.js",
     "db:onboard:customer": "node scripts/onboard-customer.js",
     "db:grant:account": "node scripts/grant-account-access.js",
-    "db:import:usage": "node scripts/import-usage.js"
+    "db:import:usage": "node scripts/import-usage.js",
+    "billing:generate": "node scripts/generate-billing.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.100.1",

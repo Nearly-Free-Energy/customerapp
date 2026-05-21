@@ -1,0 +1,14 @@
+{
+  "microgridId": "<MBE microgrid UUID — find in MBE Supabase: billing_periods.microgrid_id>",
+  "meters": {
+    "2":  "<MBE household UUID for meter_002>",
+    "3":  "<MBE household UUID for meter_003>",
+    "4":  "<MBE household UUID for meter_004>",
+    "5":  "<MBE household UUID for meter_005>",
+    "6":  "<MBE household UUID for meter_006>",
+    "7":  "<MBE household UUID for meter_007>",
+    "8":  "<MBE household UUID for meter_008>",
+    "9":  "<MBE household UUID for meter_009>",
+    "10": "<MBE household UUID for meter_010>"
+  }
+}
