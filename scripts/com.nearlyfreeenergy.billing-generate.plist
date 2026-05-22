@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.nearlyfreeenergy.billing-generate</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/atushabe/NearlyFreeEnergy/NFE Web App/scripts/run-scheduled-billing-generate.sh</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/atushabe/NearlyFreeEnergy/NFE Web App</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>6</integer>
+    <key>Minute</key>
+    <integer>0</integer>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>/Users/atushabe/Library/Logs/nfe-billing-generate.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/atushabe/Library/Logs/nfe-billing-generate.error.log</string>
+</dict>
+</plist>
