@@ -1,4 +1,4 @@
-# nfeapp
+# Customerapp
 
 App for customers and microgrid managers to monitor electricity usage.
 
