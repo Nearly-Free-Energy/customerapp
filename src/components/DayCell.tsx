@@ -18,6 +18,7 @@ export function DayCell({ day, comparisonValues, variant, selected = false, onSe
     day.isFuture ? 'day-cell--muted' : '',
     day.isCurrentMonth === false ? 'day-cell--outside' : '',
     selected ? 'day-cell--selected' : '',
+    day.isPartial && !day.isFuture ? 'day-cell--partial' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -34,11 +35,11 @@ export function DayCell({ day, comparisonValues, variant, selected = false, onSe
       className={classes}
       onClick={() => onSelect?.(day.key)}
       aria-pressed={selected}
-      aria-label={`${fullDateLabel}, ${formatUsageValue(day.usageValue)} ${day.unit}`}
+      aria-label={`${fullDateLabel}, ${formatUsageValue(day.usageValue)} ${day.unit}${day.isPartial ? ' (today so far)' : ''}`}
     >
       <span className="day-cell__date">{day.date.getDate()}</span>
       <span className="day-cell__usage">{formatUsageValue(day.usageValue)}</span>
-      <span className="day-cell__unit">{day.unit}</span>
+      <span className="day-cell__unit">{day.isPartial && !day.isFuture ? 'so far' : day.unit}</span>
     </button>
   );
 }

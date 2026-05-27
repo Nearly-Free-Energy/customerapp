@@ -41,7 +41,7 @@ export async function fetchAuthorizedUsageForService(email, serviceId = null, cl
 
   const { data, error } = await client
     .from('usage_daily_snapshots')
-    .select('usage_date, usage_kwh, source')
+    .select('usage_date, usage_kwh, source, is_partial, synced_at')
     .eq('utility_service_id', electricService.id)
     .order('usage_date', { ascending: true });
 
@@ -57,18 +57,27 @@ export async function fetchAuthorizedUsageForService(email, serviceId = null, cl
     return buildEmptyUsagePayload(customer.account.id, electricService);
   }
 
+  const lastRow = data[data.length - 1];
+  const latestSyncedAt = data.reduce((latest, row) => {
+    if (!row.synced_at) return latest;
+    if (!latest) return row.synced_at;
+    return row.synced_at > latest ? row.synced_at : latest;
+  }, null);
+
   return {
     accountId: customer.account.id,
     serviceId: electricService.id,
     serviceName: electricService.serviceName,
     unit: 'kWh',
-    source: normalizeUsageSource(data[data.length - 1]?.source),
-    today: data[data.length - 1]?.usage_date ?? formatIsoDate(new Date()),
+    source: normalizeUsageSource(lastRow?.source),
+    today: lastRow?.usage_date ?? formatIsoDate(new Date()),
+    lastSyncedAt: latestSyncedAt,
     points: data.map((row) => ({
       date: row.usage_date,
       usageValue: row.usage_kwh === null ? null : Number(row.usage_kwh),
       unit: 'kWh',
       isFuture: false,
+      isPartial: row.is_partial ?? false,
     })),
   };
 }
@@ -130,5 +139,7 @@ function shouldUseSeededFallback() {
 }
 
 function normalizeUsageSource(source) {
-  return source === 'nextcloud-import' ? 'nextcloud-import' : 'database';
+  if (source === 'nextcloud-import') return 'nextcloud-import';
+  if (source === 'pi-direct' || source === 'pi-direct-backfill') return 'pi-direct';
+  return 'database';
 }
