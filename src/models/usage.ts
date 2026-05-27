@@ -5,6 +5,7 @@ export type UsagePoint = {
   usageValue: number | null;
   unit: UsageUnit;
   isFuture?: boolean;
+  isPartial?: boolean;
 };
 
 export type UsageApiResponse = {
@@ -12,8 +13,9 @@ export type UsageApiResponse = {
   serviceId: string | null;
   serviceName: string | null;
   unit: UsageUnit;
-  source: 'database' | 'seeded-demo' | 'nextcloud-import';
+  source: 'database' | 'seeded-demo' | 'nextcloud-import' | 'pi-direct';
   today: string;
+  lastSyncedAt?: string | null;
   points: UsagePoint[];
 };
 
@@ -34,4 +36,5 @@ export type UsageCalendarDay = {
   unit: UsageUnit;
   isFuture: boolean;
   isCurrentMonth?: boolean;
+  isPartial?: boolean;
 };

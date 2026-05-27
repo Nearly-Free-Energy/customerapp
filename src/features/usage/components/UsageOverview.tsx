@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getUsage } from '../../../api';
+import { supabase } from '../../../supabase';
 import { BottomControlTray } from '../../../components/BottomControlTray';
 import { UsageSummary } from '../../../components/UsageSummary';
 import { MonthlyCalendar } from '../../../components/MonthlyCalendar';
@@ -25,6 +26,8 @@ export function UsageOverview({ accessToken, accounts, services, previewUsageDat
   const [usageData, setUsageData] = useState<UsageApiResponse | null>(previewUsageData ?? null);
   const [usageError, setUsageError] = useState<string | null>(null);
   const [isLoadingUsage, setIsLoadingUsage] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const syncReloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const electricServices = services.filter((service) => service.serviceType === 'electric' && service.status === 'active');
   const requestedServiceId = searchParams.get('serviceId');
   const selectedServiceId = requestedServiceId ?? electricServices[0]?.id ?? undefined;
@@ -112,6 +115,41 @@ export function UsageOverview({ accessToken, accounts, services, previewUsageDat
     setSearchParams({ serviceId: nextServiceId });
   }
 
+  async function handleSyncNow() {
+    if (isSyncing) return;
+    setIsSyncing(true);
+
+    try {
+      const channel = supabase.channel('sync-commands', {
+        config: { broadcast: { self: false } },
+      });
+      await new Promise<void>((resolve) => {
+        channel.subscribe((status) => {
+          if (status === 'SUBSCRIBED') resolve();
+        });
+      });
+      await channel.send({ type: 'broadcast', event: 'sync_now', payload: {} });
+      await supabase.removeChannel(channel);
+    } catch {
+      // broadcast best-effort — still reload after delay
+    }
+
+    // Give the Pi a few seconds to push, then reload usage
+    if (syncReloadTimer.current) clearTimeout(syncReloadTimer.current);
+    syncReloadTimer.current = setTimeout(async () => {
+      if (!selectedServiceId) return;
+      try {
+        const next = await getUsage(accessToken, selectedServiceId);
+        setUsageData(next);
+        setAnchorDate(parseIsoDate(next.today));
+      } catch {
+        // silent — user can refresh manually
+      } finally {
+        setIsSyncing(false);
+      }
+    }, 5000);
+  }
+
   function formatServiceOptionLabel(service: UtilityService) {
     const owningAccount = accounts.find((account) => account.id === service.utilityAccountId);
     const firstName = owningAccount?.displayName.trim().split(/\s+/)[0];
@@ -157,6 +195,9 @@ export function UsageOverview({ accessToken, accounts, services, previewUsageDat
         onPrevious={() => handleNavigate(-1)}
         onNext={() => handleNavigate(1)}
         canNavigateNext={!isViewingCurrentMonth}
+        onSync={!previewUsageData ? handleSyncNow : undefined}
+        isSyncing={isSyncing}
+        lastSyncedAt={usageData?.lastSyncedAt}
       />
     </>
   );

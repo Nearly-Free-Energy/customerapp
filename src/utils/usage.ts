@@ -29,6 +29,7 @@ export function createCalendarDay(
     usageValue: match?.usageValue ?? null,
     unit: match?.unit ?? fallbackUnit,
     isFuture: match?.isFuture ?? date.getTime() > today.getTime(),
+    isPartial: match?.isPartial ?? false,
   };
 }
 
