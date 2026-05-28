@@ -136,6 +136,34 @@ create index if not exists idx_usage_import_files_status on usage_import_files(i
 create index if not exists idx_usage_import_files_meter_source on usage_import_files(meter_source_id);
 create index if not exists idx_usage_daily_snapshots_service_date on usage_daily_snapshots(utility_service_id, usage_date);
 
+-- Supabase Data API visibility is controlled by explicit table grants.
+-- RLS policies below still decide which rows authenticated users can read.
+grant select on table
+  public.customer_profiles,
+  public.utility_accounts,
+  public.customer_utility_account_access,
+  public.utility_services,
+  public.utility_service_microgrids,
+  public.microgrids,
+  public.gateways,
+  public.field_devices,
+  public.usage_daily_snapshots
+to authenticated;
+
+grant select, insert, update, delete on table
+  public.customer_profiles,
+  public.utility_accounts,
+  public.customer_utility_account_access,
+  public.utility_services,
+  public.microgrids,
+  public.utility_service_microgrids,
+  public.gateways,
+  public.field_devices,
+  public.meter_sources,
+  public.usage_import_files,
+  public.usage_daily_snapshots
+to service_role;
+
 -- Lock down API access by default. This app reads and writes these tables
 -- through server-side code using the service role, so RLS can stay enabled
 -- until we intentionally add end-user policies.
