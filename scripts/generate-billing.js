@@ -15,6 +15,7 @@
 
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -48,7 +49,7 @@ async function main() {
     return;
   }
 
-  const scriptDir = path.dirname(new URL(import.meta.url).pathname);
+  const scriptDir = path.dirname(fileURLToPath(import.meta.url));
   const repoRoot = path.join(scriptDir, '..');
 
   const mapPath =
