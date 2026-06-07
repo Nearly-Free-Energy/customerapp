@@ -125,7 +125,13 @@ fi
 
 # Compute start_date (1st of previous month) and end_date (1st of today)
 END_DATE="${RUN_DATE}"
-START_DATE="$(date -v-1m '+%Y-%m-01')"
+if date --version >/dev/null 2>&1; then
+  # GNU date (Linux)
+  START_DATE="$(date --date='last month' '+%Y-%m-01')"
+else
+  # BSD date (macOS)
+  START_DATE="$(date -v-1m '+%Y-%m-01')"
+fi
 
 log "INFO" "Billing period: ${START_DATE} to ${END_DATE}"
 
