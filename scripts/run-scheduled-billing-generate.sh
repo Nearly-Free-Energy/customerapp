@@ -138,7 +138,7 @@ require_env() {
 }
 
 require_env "MBE_API_URL"
-require_env "MBE_INTERNAL_API_KEY"
+require_env "MBE_API_TOKEN"
 require_env "BILLING_SNAPSHOTS_DIR"
 
 # Check both snapshot files exist before calling MBE

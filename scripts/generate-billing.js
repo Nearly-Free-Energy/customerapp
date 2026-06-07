@@ -7,7 +7,7 @@
  *
  * Required env vars:
  *   MBE_API_URL              Base URL of the MBE deployment (no trailing slash)
- *   MBE_INTERNAL_API_KEY     Shared secret — must match INTERNAL_API_KEY in MBE Vercel env
+ *   MBE_API_TOKEN            Per-org API token generated in MBE Settings → API Tokens
  *   BILLING_METER_MAP        Path to billing-meter-map.json (defaults to config/billing-meter-map.json)
  *   BILLING_SNAPSHOTS_DIR    Path to billing-snapshots folder
  *                            (defaults to USAGE_IMPORT_HOST_DIR/billing-snapshots)
@@ -41,9 +41,9 @@ async function main() {
     return;
   }
 
-  const apiKey = process.env.MBE_INTERNAL_API_KEY;
-  if (!apiKey || apiKey.length < 32) {
-    console.error('MBE_INTERNAL_API_KEY is not set or is shorter than 32 characters.');
+  const apiKey = process.env.MBE_API_TOKEN;
+  if (!apiKey) {
+    console.error('MBE_API_TOKEN is not set. Generate a token in MBE Settings → API Tokens and add it to your .env.');
     process.exitCode = 1;
     return;
   }
@@ -155,7 +155,7 @@ async function main() {
   console.log(`\nSubmitting ${manualReadings.length} reading(s) to MBE...`);
 
   // Step 1: create billing period
-  const periodRes = await fetch(`${mbeUrl}/api/internal/billing-periods`, {
+  const periodRes = await fetch(`${mbeUrl}/api/v1/billing-periods`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -179,13 +179,13 @@ async function main() {
   console.log(`Billing period created: ${billingPeriodId}`);
 
   // Step 2: generate line items
-  const genRes = await fetch(`${mbeUrl}/api/internal/billing/generate`, {
+  const genRes = await fetch(`${mbeUrl}/api/v1/billing/generate`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'x-api-key': apiKey,
     },
-    body: JSON.stringify({ billingPeriodId, manualReadings }),
+    body: JSON.stringify({ billingPeriodId, microgrid_id: meterMap.microgridId, manualReadings }),
   });
 
   const genBody = await genRes.json().catch(() => ({}));
