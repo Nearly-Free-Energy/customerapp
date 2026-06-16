@@ -164,18 +164,21 @@ describe('/api/usage', () => {
       unit: 'kWh',
       source: 'nextcloud-import',
       today: '2026-03-23',
+      lastSyncedAt: null,
       points: [
         {
           date: '2026-03-22',
           usageValue: 31.2,
           unit: 'kWh',
           isFuture: false,
+          isPartial: false,
         },
         {
           date: '2026-03-23',
           usageValue: 27.8,
           unit: 'kWh',
           isFuture: false,
+          isPartial: false,
         },
       ],
     });
