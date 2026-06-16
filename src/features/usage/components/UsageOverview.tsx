@@ -119,6 +119,14 @@ export function UsageOverview({ accessToken, accounts, services, previewUsageDat
     if (isSyncing) return;
     setIsSyncing(true);
 
+    if (previewUsageData) {
+      if (syncReloadTimer.current) clearTimeout(syncReloadTimer.current);
+      syncReloadTimer.current = setTimeout(() => {
+        setIsSyncing(false);
+      }, 1200);
+      return;
+    }
+
     try {
       const channel = supabase.channel('sync-commands', {
         config: { broadcast: { self: false } },
@@ -195,7 +203,7 @@ export function UsageOverview({ accessToken, accounts, services, previewUsageDat
         onPrevious={() => handleNavigate(-1)}
         onNext={() => handleNavigate(1)}
         canNavigateNext={!isViewingCurrentMonth}
-        onSync={!previewUsageData ? handleSyncNow : undefined}
+        onSync={handleSyncNow}
         isSyncing={isSyncing}
         lastSyncedAt={usageData?.lastSyncedAt}
       />

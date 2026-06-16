@@ -55,19 +55,28 @@ export function BottomControlTray({
 
       {onSync ? (
         <div className="bottom-tray__group bottom-tray__group--sync">
-          {lastSyncedAt ? (
-            <div className="bottom-tray__caption">
-              Updated {formatRelativeTime(lastSyncedAt)}
-            </div>
-          ) : null}
+          <div className="bottom-tray__caption">
+            {lastSyncedAt ? `Updated ${formatRelativeTime(lastSyncedAt)}` : 'Meter data'}
+          </div>
           <button
             type="button"
             className={`sync-button${isSyncing ? ' sync-button--syncing' : ''}`}
             onClick={onSync}
             disabled={isSyncing}
-            aria-label="Sync latest meter data"
+            aria-label={isSyncing ? 'Syncing latest meter data' : 'Sync latest meter data'}
+            title={isSyncing ? 'Syncing latest meter data' : 'Sync latest meter data'}
           >
-            {isSyncing ? 'Syncing...' : 'Sync now'}
+            <svg
+              className="sync-button__icon"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="M20 6v5h-5" />
+              <path d="M4 18v-5h5" />
+              <path d="M17.7 9A6 6 0 0 0 7.8 6.8L4 10.5" />
+              <path d="M6.3 15A6 6 0 0 0 16.2 17.2L20 13.5" />
+            </svg>
           </button>
         </div>
       ) : null}

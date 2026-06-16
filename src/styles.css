@@ -608,29 +608,33 @@ h1 {
 .bottom-tray__group--sync {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
+  align-items: center;
   justify-content: space-between;
-  min-width: 110px;
+  min-width: 72px;
 }
 
 .sync-button {
-  flex: 1;
-  min-height: 44px;
+  width: 52px;
+  height: 52px;
   border: 0;
-  border-radius: 16px;
-  background: var(--nfe-lime);
-  color: var(--nfe-ink);
-  font-size: 0.85rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.9), transparent 28%),
+    linear-gradient(180deg, #dffb58, var(--nfe-lime));
+  color: var(--nfe-olive-deep);
+  box-shadow:
+    inset 0 -2px 0 rgba(48, 61, 16, 0.16),
+    0 10px 22px rgba(199, 246, 66, 0.26);
   cursor: pointer;
-  transition: opacity 0.15s, transform 0.1s;
-  white-space: nowrap;
-  padding: 0 14px;
+  transition: box-shadow 0.15s, transform 0.1s, opacity 0.15s;
 }
 
 .sync-button:hover:not(:disabled) {
-  opacity: 0.88;
+  box-shadow:
+    inset 0 -2px 0 rgba(48, 61, 16, 0.18),
+    0 12px 26px rgba(199, 246, 66, 0.36);
 }
 
 .sync-button:active:not(:disabled) {
@@ -638,8 +642,28 @@ h1 {
 }
 
 .sync-button--syncing {
-  opacity: 0.55;
+  opacity: 0.78;
   cursor: not-allowed;
+}
+
+.sync-button__icon {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sync-button--syncing .sync-button__icon {
+  animation: sync-spin 0.9s linear infinite;
+}
+
+@keyframes sync-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes partial-pulse {
