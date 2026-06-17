@@ -110,8 +110,8 @@ async function main() {
     return;
   }
 
-  console.log(`Start snapshot: ${startSnapshotPath} (marker: ${startSnapshot.backfilled ? 'backfilled' : 'live'})`);
-  console.log(`End snapshot:   ${endSnapshotPath} (marker: ${endSnapshot.backfilled ? 'backfilled' : 'live'})`);
+  console.log(`Start snapshot date: ${startDate} (marker: ${startSnapshot.backfilled ? 'backfilled' : 'live'})`);
+  console.log(`End snapshot date:   ${endDate} (marker: ${endSnapshot.backfilled ? 'backfilled' : 'live'})`);
 
   const manualReadings = [];
   const skipped = [];
