@@ -69,6 +69,7 @@ function App() {
         authError={state.authError}
         authMessage={state.authMessage}
         isSendingLink={state.isSendingLink}
+        signInCooldownSeconds={state.signInCooldownSeconds}
         onEmailChange={handleEmailChange}
         onSubmit={handleSignIn}
       />

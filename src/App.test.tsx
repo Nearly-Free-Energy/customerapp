@@ -418,6 +418,34 @@ describe('Electricity consumption dashboard', () => {
     expect(await screen.findByText('Check your email for the secure sign-in link.')).toBeInTheDocument();
   });
 
+  it('disables magic link retries during Supabase cooldown', async () => {
+    const { supabase } = await import('./supabase');
+    vi.mocked(supabase.auth.getSession).mockResolvedValueOnce({
+      data: { session: null },
+      error: null,
+    } as never);
+    vi.mocked(supabase.auth.signInWithOtp).mockResolvedValueOnce({
+      error: {
+        message: 'For security purposes, you can only request this after 43 seconds.',
+      },
+    } as never);
+    const initialSignInCallCount = vi.mocked(supabase.auth.signInWithOtp).mock.calls.length;
+
+    const user = userEvent.setup();
+    renderApp();
+
+    await screen.findByRole('heading', { name: 'Sign in to view your energy dashboard' });
+    await user.type(screen.getByLabelText('Email address'), 'pokello8@gmail.com');
+    await user.click(screen.getByRole('button', { name: 'Send sign-in link' }));
+
+    expect(await screen.findByText('For security purposes, you can only request this after 43 seconds.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try again in 43s' })).toBeDisabled();
+
+    await user.click(screen.getByRole('button', { name: 'Try again in 43s' }));
+
+    expect(supabase.auth.signInWithOtp).toHaveBeenCalledTimes(initialSignInCallCount + 1);
+  });
+
   it('signs out when the user clicks sign out', async () => {
     const { supabase } = await import('./supabase');
     const user = userEvent.setup();

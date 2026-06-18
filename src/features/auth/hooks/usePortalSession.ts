@@ -11,6 +11,7 @@ export type PortalSessionState =
       authError: string | null;
       authMessage: string | null;
       isSendingLink: boolean;
+      signInCooldownSeconds: number;
     }
   | {
       status: 'signedOut';
@@ -18,6 +19,7 @@ export type PortalSessionState =
       authError: string | null;
       authMessage: string | null;
       isSendingLink: boolean;
+      signInCooldownSeconds: number;
     }
   | {
       status: 'verifying';
@@ -25,6 +27,7 @@ export type PortalSessionState =
       authError: string | null;
       authMessage: string | null;
       isSendingLink: boolean;
+      signInCooldownSeconds: number;
     }
   | {
       status: 'signedIn';
@@ -38,6 +41,7 @@ export type PortalSessionState =
       authError: string | null;
       authMessage: string | null;
       isSendingLink: boolean;
+      signInCooldownSeconds: number;
     };
 
 type UsePortalSessionResult = {
@@ -54,6 +58,7 @@ export function usePortalSession(): UsePortalSessionResult {
   const [authMessage, setAuthMessage] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isSendingLink, setIsSendingLink] = useState(false);
+  const [signInCooldownSeconds, setSignInCooldownSeconds] = useState(0);
   const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
   const [account, setAccount] = useState<UtilityAccount | null>(null);
@@ -113,6 +118,18 @@ export function usePortalSession(): UsePortalSessionResult {
       subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (signInCooldownSeconds <= 0) {
+      return undefined;
+    }
+
+    const timer = window.setInterval(() => {
+      setSignInCooldownSeconds((current) => Math.max(current - 1, 0));
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [signInCooldownSeconds]);
 
   useEffect(() => {
     let isMounted = true;
@@ -177,6 +194,10 @@ export function usePortalSession(): UsePortalSessionResult {
 
   async function handleSignIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (signInCooldownSeconds > 0) {
+      return;
+    }
+
     setAuthError(null);
     setAuthMessage(null);
     setIsSendingLink(true);
@@ -190,8 +211,10 @@ export function usePortalSession(): UsePortalSessionResult {
 
     if (error) {
       setAuthError(error.message);
+      setSignInCooldownSeconds(extractCooldownSeconds(error.message));
     } else {
       setAuthMessage('Check your email for the secure sign-in link.');
+      setSignInCooldownSeconds(60);
     }
 
     setIsSendingLink(false);
@@ -218,6 +241,7 @@ export function usePortalSession(): UsePortalSessionResult {
         authError,
         authMessage,
         isSendingLink,
+        signInCooldownSeconds,
       },
       handleEmailChange: setEmail,
       handleSignIn,
@@ -233,6 +257,7 @@ export function usePortalSession(): UsePortalSessionResult {
         authError,
         authMessage,
         isSendingLink,
+        signInCooldownSeconds,
       },
       handleEmailChange: setEmail,
       handleSignIn,
@@ -248,6 +273,7 @@ export function usePortalSession(): UsePortalSessionResult {
         authError,
         authMessage,
         isSendingLink,
+        signInCooldownSeconds,
       },
       handleEmailChange: setEmail,
       handleSignIn,
@@ -263,6 +289,7 @@ export function usePortalSession(): UsePortalSessionResult {
         authError,
         authMessage,
         isSendingLink,
+        signInCooldownSeconds,
       },
       handleEmailChange: setEmail,
       handleSignIn,
@@ -283,9 +310,15 @@ export function usePortalSession(): UsePortalSessionResult {
       authError,
       authMessage,
       isSendingLink,
+      signInCooldownSeconds,
     },
     handleEmailChange: setEmail,
     handleSignIn,
     handleSignOut,
   };
+}
+
+function extractCooldownSeconds(message: string): number {
+  const match = message.match(/after\s+(\d+)\s+seconds?/i);
+  return match ? Number(match[1]) : 0;
 }

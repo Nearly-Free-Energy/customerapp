@@ -5,6 +5,7 @@ type SignInScreenProps = {
   authError: string | null;
   authMessage: string | null;
   isSendingLink: boolean;
+  signInCooldownSeconds: number;
   onEmailChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
 };
@@ -14,9 +15,17 @@ export function SignInScreen({
   authError,
   authMessage,
   isSendingLink,
+  signInCooldownSeconds,
   onEmailChange,
   onSubmit,
 }: SignInScreenProps) {
+  const isSubmitDisabled = isSendingLink || signInCooldownSeconds > 0;
+  const buttonLabel = isSendingLink
+    ? 'Sending link...'
+    : signInCooldownSeconds > 0
+      ? `Try again in ${signInCooldownSeconds}s`
+      : 'Send sign-in link';
+
   return (
     <main className="app-shell">
       <section className="dashboard-card dashboard-card--narrow">
@@ -55,8 +64,8 @@ export function SignInScreen({
               placeholder="you@example.com"
               required
             />
-            <button type="submit" className="auth-form__button" disabled={isSendingLink}>
-              {isSendingLink ? 'Sending link...' : 'Send sign-in link'}
+            <button type="submit" className="auth-form__button" disabled={isSubmitDisabled}>
+              {buttonLabel}
             </button>
           </form>
         </div>
