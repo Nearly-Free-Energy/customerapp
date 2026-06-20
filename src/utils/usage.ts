@@ -72,11 +72,6 @@ export function summarizePeriod(
   const totalUsage = measuredDays.reduce((sum, day) => sum + (day.usageValue ?? 0), 0);
   const averageDailyUsage = measuredDays.length > 0 ? totalUsage / measuredDays.length : 0;
   const fullyMeasuredCutoff = addDays(today, -2);
-  const fullyMeasuredDays = measuredDays.filter((day) => day.date.getTime() <= fullyMeasuredCutoff.getTime());
-  const fullyMeasuredUsage = fullyMeasuredDays.reduce((sum, day) => sum + (day.usageValue ?? 0), 0);
-  const fullyMeasuredAverageDailyUsage =
-    fullyMeasuredDays.length > 0 ? fullyMeasuredUsage / fullyMeasuredDays.length : 0;
-
   const sorted = [...measuredDays].sort((left, right) => (left.usageValue ?? 0) - (right.usageValue ?? 0));
 
   const currentUsageCashUgx = calculateCurrentUsageCashUgx(usagePoints, today, billingMonthAnchor);
