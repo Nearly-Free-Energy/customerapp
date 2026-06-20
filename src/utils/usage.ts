@@ -87,7 +87,7 @@ export function summarizePeriod(
   const recentDays = [...measuredDays]
     .filter((day) => day.date.getTime() <= fullyMeasuredCutoff.getTime())
     .sort((a, b) => b.date.getTime() - a.date.getTime())
-    .slice(0, 5);
+    .slice(0, 7);
   const recentUsage = recentDays.reduce((sum, day) => sum + (day.usageValue ?? 0), 0);
   const activeDailyAverage = recentDays.length > 0 ? recentUsage / recentDays.length : 0;
 
