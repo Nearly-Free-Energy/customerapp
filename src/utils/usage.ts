@@ -79,11 +79,23 @@ export function summarizePeriod(
 
   const sorted = [...measuredDays].sort((left, right) => (left.usageValue ?? 0) - (right.usageValue ?? 0));
 
+  const currentUsageCashUgx = calculateCurrentUsageCashUgx(usagePoints, today, billingMonthAnchor);
+
+  // Use the last 5 fully-measured days (rolling window) for the daily pace.
+  // This avoids zero days from before the customer joined skewing the average.
+  // On the last day of the month remaining days = 0, so estimate = current bill automatically.
+  const recentDays = [...measuredDays]
+    .filter((day) => day.date.getTime() <= fullyMeasuredCutoff.getTime())
+    .sort((a, b) => b.date.getTime() - a.date.getTime())
+    .slice(0, 5);
+  const recentUsage = recentDays.reduce((sum, day) => sum + (day.usageValue ?? 0), 0);
+  const activeDailyAverage = recentDays.length > 0 ? recentUsage / recentDays.length : 0;
+
   return {
     totalUsage: roundToTwo(totalUsage),
     averageDailyUsage: roundToTwo(averageDailyUsage),
-    currentUsageCashUgx: calculateCurrentUsageCashUgx(usagePoints, today, billingMonthAnchor),
-    estimatedMonthlyBillUgx: calculateEstimatedMonthlyBillUgx(fullyMeasuredAverageDailyUsage, billingMonthAnchor),
+    currentUsageCashUgx,
+    estimatedMonthlyBillUgx: calculateEstimatedMonthlyBillUgx(totalUsage, activeDailyAverage, billingMonthAnchor, today),
     unit,
     lowestUsageDay: sorted[0]?.key,
     highestUsageDay: sorted[sorted.length - 1]?.key,
@@ -106,9 +118,15 @@ export function calculateCurrentUsageCashUgx(points: UsagePoint[], today: Date, 
   return calculateBillUgx(monthUsage);
 }
 
-export function calculateEstimatedMonthlyBillUgx(averageDailyUsage: number, billingMonthAnchor: Date): number {
+export function calculateEstimatedMonthlyBillUgx(
+  currentUsageKwh: number,
+  averageDailyUsage: number,
+  billingMonthAnchor: Date,
+  today: Date,
+): number {
   const daysInMonth = endOfMonth(billingMonthAnchor).getDate();
-  return calculateBillUgx(averageDailyUsage * daysInMonth);
+  const remainingDays = Math.max(0, daysInMonth - today.getDate());
+  return calculateBillUgx(currentUsageKwh + averageDailyUsage * remainingDays);
 }
 
 export function formatUgxAmount(value: number): string {

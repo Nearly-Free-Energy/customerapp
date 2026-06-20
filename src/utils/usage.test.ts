@@ -75,7 +75,7 @@ describe('usage billing helpers', () => {
     );
 
     expect(summary.currentUsageCashUgx).toBe(10703);
-    expect(summary.estimatedMonthlyBillUgx).toBe(176350);
+    expect(summary.estimatedMonthlyBillUgx).toBe(149581);
   });
 
   it('uses only days at least 48 hours old for the monthly estimate pace', () => {
@@ -120,11 +120,13 @@ describe('usage billing helpers', () => {
     );
 
     expect(summary.currentUsageCashUgx).toBe(80371);
-    expect(summary.estimatedMonthlyBillUgx).toBe(771079);
+    expect(summary.estimatedMonthlyBillUgx).toBe(216951);
   });
 
-  it('projects the monthly bill using the visible month length and current daily pace', () => {
-    expect(calculateEstimatedMonthlyBillUgx(15, new Date(2026, 2, 15))).toBe(383814);
-    expect(calculateEstimatedMonthlyBillUgx(15, new Date(2026, 3, 15))).toBe(370429);
+  it('projects forward from current usage using remaining days in the month', () => {
+    // March (31 days): 0 kWh used, 1 kWh/day avg, today=Mar 15 → 16 remaining days → 16 kWh projected
+    expect(calculateEstimatedMonthlyBillUgx(0, 1, new Date(2026, 2, 1), new Date(2026, 2, 15))).toBe(11595);
+    // April (30 days): same pace but 15 remaining days → 15 kWh projected (one less day)
+    expect(calculateEstimatedMonthlyBillUgx(0, 1, new Date(2026, 3, 1), new Date(2026, 3, 15))).toBe(10703);
   });
 });
