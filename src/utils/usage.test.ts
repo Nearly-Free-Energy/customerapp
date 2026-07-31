@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { UsagePoint } from '../models/usage';
-import { calculateCurrentUsageCashUgx, calculateEstimatedMonthlyBillUgx, summarizePeriod } from './usage';
+import { calculateCurrentUsageCashUgx, calculateEstimatedMonthlyBillUgx, completeMonthlyTotals, isLifelineEligible, summarizePeriod } from './usage';
 
 function buildPoint(date: string, usageValue: number | null, isFuture = false): UsagePoint {
   return {
@@ -128,5 +128,62 @@ describe('usage billing helpers', () => {
     expect(calculateEstimatedMonthlyBillUgx(0, 1, new Date(2026, 2, 1), new Date(2026, 2, 15))).toBe(13955);
     // April (30 days): same pace but 15 remaining days → 15 kWh projected (one less day)
     expect(calculateEstimatedMonthlyBillUgx(0, 1, new Date(2026, 3, 1), new Date(2026, 3, 15))).toBe(13063);
+  });
+});
+
+// --- Lifeline 6-month rolling average (#16) ---------------------------------
+
+function fullMonth(year: number, month1: number, dailyKwh: number): UsagePoint[] {
+  const days = new Date(year, month1, 0).getDate();
+  const pts: UsagePoint[] = [];
+  for (let d = 1; d <= days; d++) {
+    pts.push(buildPoint(`${year}-${String(month1).padStart(2, '0')}-${String(d).padStart(2, '0')}`, dailyKwh));
+  }
+  return pts;
+}
+
+describe('lifeline eligibility', () => {
+  it('aggregates complete past months, excluding the current and any partial month', () => {
+    const today = new Date(2026, 6, 15); // Jul 15
+    const points = [
+      ...fullMonth(2026, 5, 4), // May: 31 x 4 = 124 (complete)
+      ...fullMonth(2026, 6, 5), // Jun: 30 x 5 = 150 (complete)
+      buildPoint('2026-07-01', 3), // current month (partial) -> excluded
+      // April, only 10 days -> partial -> excluded
+      ...Array.from({ length: 10 }, (_, i) => buildPoint(`2026-04-${String(i + 1).padStart(2, '0')}`, 2)),
+    ];
+    expect(completeMonthlyTotals(points, today)).toEqual([150, 124]); // most recent first
+  });
+
+  it('defaults to eligible with fewer than 6 complete months (court-safe)', () => {
+    expect(isLifelineEligible([])).toBe(true);
+    expect(isLifelineEligible([300, 300, 300, 300, 300])).toBe(true); // 5 months, still eligible
+  });
+
+  it('denies the lifeline only when the 6-month average exceeds 100', () => {
+    expect(isLifelineEligible([120, 120, 120, 120, 120, 120])).toBe(false); // avg 120
+    expect(isLifelineEligible([90, 90, 90, 90, 90, 90])).toBe(true); // avg 90
+    expect(isLifelineEligible([50, 50, 50, 50, 50, 50, 500])).toBe(true); // only most-recent 6 count
+  });
+
+  it('drops the 250 discount on the first 15 units when a customer is not eligible', () => {
+    const today = new Date(2026, 4, 6); // May 6
+    const pts = [buildPoint('2026-05-01', 15)];
+    const eligible = calculateCurrentUsageCashUgx(pts, today, today, true);
+    const notEligible = calculateCurrentUsageCashUgx(pts, today, today, false);
+    expect(eligible).toBe(13063); // (15*250 + 7320)*1.18
+    expect(notEligible).toBe(22022); // first 15 at 756.2: (15*756.2 + 7320)*1.18
+    expect(notEligible).toBeGreaterThan(eligible);
+  });
+
+  it('applies denial through summarizePeriod once 6 complete months exceed 100', () => {
+    const today = new Date(2026, 6, 6); // Jul 6
+    const history = [
+      ...fullMonth(2026, 1, 4), ...fullMonth(2026, 2, 4), ...fullMonth(2026, 3, 4),
+      ...fullMonth(2026, 4, 4), ...fullMonth(2026, 5, 4), ...fullMonth(2026, 6, 4), // avg ~120 -> not eligible
+      buildPoint('2026-07-01', 15), // current month usage
+    ];
+    const summary = summarizePeriod([], history, today, today);
+    expect(summary.currentUsageCashUgx).toBe(22022); // non-lifeline first-15 rate applied
   });
 });

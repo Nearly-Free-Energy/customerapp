@@ -14,6 +14,13 @@ const BILLING_TARIERS = [
   { limit: Number.POSITIVE_INFINITY, rate: 756.2 },
 ] as const;
 
+// Lifeline (first 15 units at 250) applies only to domestic customers whose rolling
+// average over the previous 6 COMPLETE months is <= 100 kWh (ERA). Enforcement waits
+// for a defendable 6-month window; before that the customer is never denied (court-
+// safe: you cannot apply the tariff on a basis the regulation does not define). See #16.
+const LIFELINE_WINDOW_MONTHS = 6;
+const LIFELINE_MAX_AVG_KWH = 100;
+
 export function buildUsageLookup(days: UsagePoint[]): Map<string, UsagePoint> {
   return new Map(days.map((day) => [day.date, day]));
 }
@@ -78,7 +85,10 @@ export function summarizePeriod(
   const fullyMeasuredCutoff = addDays(today, -2);
   const sorted = [...measuredDays].sort((left, right) => (left.usageValue ?? 0) - (right.usageValue ?? 0));
 
-  const currentUsageCashUgx = calculateCurrentUsageCashUgx(usagePoints, today, billingMonthAnchor);
+  // Lifeline eligibility from the customer's own history. Defaults to eligible until
+  // there is a defendable 6-month window of complete months (see isLifelineEligible).
+  const lifelineEligible = isLifelineEligible(completeMonthlyTotals(usagePoints, today));
+  const currentUsageCashUgx = calculateCurrentUsageCashUgx(usagePoints, today, billingMonthAnchor, lifelineEligible);
 
   // Use the last 5 fully-measured days (rolling window) for the daily pace.
   // This avoids zero days from before the customer joined skewing the average.
@@ -94,14 +104,14 @@ export function summarizePeriod(
     totalUsage: roundToTwo(totalUsage),
     averageDailyUsage: roundToTwo(averageDailyUsage),
     currentUsageCashUgx,
-    estimatedMonthlyBillUgx: calculateEstimatedMonthlyBillUgx(totalUsage, activeDailyAverage, billingMonthAnchor, today),
+    estimatedMonthlyBillUgx: calculateEstimatedMonthlyBillUgx(totalUsage, activeDailyAverage, billingMonthAnchor, today, lifelineEligible),
     unit,
     lowestUsageDay: sorted[0]?.key,
     highestUsageDay: sorted[sorted.length - 1]?.key,
   };
 }
 
-export function calculateCurrentUsageCashUgx(points: UsagePoint[], today: Date, billingMonthAnchor: Date = today): number {
+export function calculateCurrentUsageCashUgx(points: UsagePoint[], today: Date, billingMonthAnchor: Date = today, lifelineEligible = true): number {
   const monthUsage = points
     .filter((point) => point.unit === 'kWh' && point.usageValue !== null && point.isFuture !== true)
     .filter((point) => {
@@ -114,7 +124,7 @@ export function calculateCurrentUsageCashUgx(points: UsagePoint[], today: Date, 
     })
     .reduce((sum, point) => sum + (point.usageValue ?? 0), 0);
 
-  return calculateBillUgx(monthUsage);
+  return calculateBillUgx(monthUsage, lifelineEligible);
 }
 
 export function calculateEstimatedMonthlyBillUgx(
@@ -122,10 +132,11 @@ export function calculateEstimatedMonthlyBillUgx(
   averageDailyUsage: number,
   billingMonthAnchor: Date,
   today: Date,
+  lifelineEligible = true,
 ): number {
   const daysInMonth = endOfMonth(billingMonthAnchor).getDate();
   const remainingDays = Math.max(0, daysInMonth - today.getDate());
-  return calculateBillUgx(currentUsageKwh + averageDailyUsage * remainingDays);
+  return calculateBillUgx(currentUsageKwh + averageDailyUsage * remainingDays, lifelineEligible);
 }
 
 export function formatUgxAmount(value: number): string {
@@ -182,25 +193,82 @@ function roundToTwo(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-function calculateTieredEnergyCharge(usageKwh: number): number {
+function calculateTieredEnergyCharge(usageKwh: number, lifelineEligible: boolean): number {
   let remaining = usageKwh;
   let total = 0;
 
-  for (const tier of BILLING_TARIERS) {
+  for (let i = 0; i < BILLING_TARIERS.length; i++) {
     if (remaining <= 0) {
       break;
     }
 
+    const tier = BILLING_TARIERS[i];
     const billedKwh = Math.min(remaining, tier.limit);
-    total += billedKwh * tier.rate;
+    // A customer who is NOT lifeline-eligible gets no 250 discount on the first 15
+    // units: that block is charged at the standard band rate instead.
+    const rate = i === 0 && !lifelineEligible ? BILLING_TARIERS[1].rate : tier.rate;
+    total += billedKwh * rate;
     remaining -= billedKwh;
   }
 
   return total;
 }
 
-function calculateBillUgx(usageKwh: number): number {
-  const energyCharge = calculateTieredEnergyCharge(usageKwh);
+function calculateBillUgx(usageKwh: number, lifelineEligible = true): number {
+  const energyCharge = calculateTieredEnergyCharge(usageKwh, lifelineEligible);
   const subtotal = energyCharge + MONTHLY_SERVICE_CHARGE_UGX;
   return Math.round(subtotal * (1 + VAT_RATE));
+}
+
+/**
+ * Aggregate daily usage points into COMPLETE calendar-month totals (kWh), most recent
+ * first. A month counts as complete only if it is fully in the past (before the current
+ * month) and has data for essentially the whole month (allowing a couple of missing
+ * days). The current, in-progress month and any partial first month are excluded - they
+ * are not defendable billing months for the lifeline test.
+ */
+export function completeMonthlyTotals(points: UsagePoint[], today: Date): number[] {
+  const byMonth = new Map<string, { total: number; days: Set<string> }>();
+  for (const point of points) {
+    if (point.unit !== 'kWh' || point.usageValue === null || point.isFuture === true) {
+      continue;
+    }
+    const key = point.date.slice(0, 7); // YYYY-MM
+    const entry = byMonth.get(key) ?? { total: 0, days: new Set<string>() };
+    entry.total += point.usageValue ?? 0;
+    entry.days.add(point.date);
+    byMonth.set(key, entry);
+  }
+
+  const currentMonth = formatIsoDate(today).slice(0, 7);
+  const complete: Array<{ month: string; total: number }> = [];
+  for (const [month, entry] of byMonth) {
+    if (month >= currentMonth) {
+      continue; // current or future month = not a complete billing month
+    }
+    const [year, monthNum] = month.split('-').map(Number);
+    const daysInMonth = new Date(year, monthNum, 0).getDate();
+    if (entry.days.size >= daysInMonth - 2) {
+      complete.push({ month, total: entry.total });
+    }
+  }
+  complete.sort((a, b) => (a.month < b.month ? 1 : -1)); // most recent first
+  return complete.map((c) => c.total);
+}
+
+/**
+ * Lifeline eligibility from a customer's complete monthly totals (most recent first).
+ *
+ * Court-safe rule: never deny the lifeline without a defendable full 6-month window.
+ * With fewer than 6 complete months we return true (eligible) - you cannot apply ERA's
+ * "previous six-month period" test on an incomplete basis. With >= 6 complete months,
+ * eligibility is the average of the most recent 6 being <= 100 kWh.
+ */
+export function isLifelineEligible(completeMonths: number[]): boolean {
+  if (completeMonths.length < LIFELINE_WINDOW_MONTHS) {
+    return true;
+  }
+  const window = completeMonths.slice(0, LIFELINE_WINDOW_MONTHS);
+  const average = window.reduce((sum, value) => sum + value, 0) / LIFELINE_WINDOW_MONTHS;
+  return average <= LIFELINE_MAX_AVG_KWH;
 }
