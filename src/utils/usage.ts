@@ -1,7 +1,9 @@
 import type { UsageCalendarDay, UsagePeriodSummary, UsagePoint, UsageUnit } from '../models/usage';
 import { addDays, eachDayOfInterval, endOfMonth, endOfWeek, formatIsoDate, parseIsoDate, startOfMonth, startOfWeek } from './date';
 
-const MONTHLY_SERVICE_CHARGE_UGX = 5320;
+// UEDCL domestic service charge, per the actual bill (meter U214624: SERVICE CHARGE
+// 1.00 x 3,360.00) and UEDCL's published tariff. Fixed monthly fee. See #15.
+const MONTHLY_SERVICE_CHARGE_UGX = 3360;
 const VAT_RATE = 0.18;
 const BILLING_TARIERS = [
   { limit: 15, rate: 250 },

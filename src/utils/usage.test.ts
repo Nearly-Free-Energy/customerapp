@@ -13,20 +13,20 @@ function buildPoint(date: string, usageValue: number | null, isFuture = false): 
 
 describe('usage billing helpers', () => {
   it('includes service charge and VAT when there is no current-month usage', () => {
-    expect(calculateCurrentUsageCashUgx([], new Date(2026, 4, 6))).toBe(6278);
+    expect(calculateCurrentUsageCashUgx([], new Date(2026, 4, 6))).toBe(3965);
   });
 
   it('prices the first 15 kWh at the first tier', () => {
-    expect(calculateCurrentUsageCashUgx([buildPoint('2026-05-01', 15)], new Date(2026, 4, 6))).toBe(10703);
+    expect(calculateCurrentUsageCashUgx([buildPoint('2026-05-01', 15)], new Date(2026, 4, 6))).toBe(8390);
   });
 
   it('prices the next 65 kWh at the second tier', () => {
-    expect(calculateCurrentUsageCashUgx([buildPoint('2026-05-01', 80)], new Date(2026, 4, 6))).toBe(68703);
+    expect(calculateCurrentUsageCashUgx([buildPoint('2026-05-01', 80)], new Date(2026, 4, 6))).toBe(66390);
   });
 
   it('prices the next 70 kWh at the third tier and anything above 150 at the top tier', () => {
-    expect(calculateCurrentUsageCashUgx([buildPoint('2026-05-01', 150)], new Date(2026, 4, 6))).toBe(102734);
-    expect(calculateCurrentUsageCashUgx([buildPoint('2026-05-01', 151)], new Date(2026, 4, 6))).toBe(103627);
+    expect(calculateCurrentUsageCashUgx([buildPoint('2026-05-01', 150)], new Date(2026, 4, 6))).toBe(100422);
+    expect(calculateCurrentUsageCashUgx([buildPoint('2026-05-01', 151)], new Date(2026, 4, 6))).toBe(101314);
   });
 
   it('uses only actual usage from the current month and excludes future or prior-month points', () => {
@@ -38,7 +38,7 @@ describe('usage billing helpers', () => {
       buildPoint('2026-05-04', null),
     ];
 
-    expect(calculateCurrentUsageCashUgx(points, new Date(2026, 4, 6))).toBe(10703);
+    expect(calculateCurrentUsageCashUgx(points, new Date(2026, 4, 6))).toBe(8390);
   });
 
   it('uses the visible month when calculating the bill for historical months', () => {
@@ -49,7 +49,7 @@ describe('usage billing helpers', () => {
       buildPoint('2026-05-02', 5),
     ];
 
-    expect(calculateCurrentUsageCashUgx(points, new Date(2026, 4, 6), new Date(2026, 2, 15))).toBe(24087);
+    expect(calculateCurrentUsageCashUgx(points, new Date(2026, 4, 6), new Date(2026, 2, 15))).toBe(21775);
   });
 
   it('adds current cash and a pace-based monthly estimate to the usage summary', () => {
@@ -74,8 +74,8 @@ describe('usage billing helpers', () => {
       new Date(2026, 4, 6),
     );
 
-    expect(summary.currentUsageCashUgx).toBe(10703);
-    expect(summary.estimatedMonthlyBillUgx).toBe(149581);
+    expect(summary.currentUsageCashUgx).toBe(8390);
+    expect(summary.estimatedMonthlyBillUgx).toBe(147268);
   });
 
   it('uses only days at least 48 hours old for the monthly estimate pace', () => {
@@ -119,14 +119,14 @@ describe('usage billing helpers', () => {
       new Date(2026, 2, 25),
     );
 
-    expect(summary.currentUsageCashUgx).toBe(80371);
-    expect(summary.estimatedMonthlyBillUgx).toBe(216951);
+    expect(summary.currentUsageCashUgx).toBe(78058);
+    expect(summary.estimatedMonthlyBillUgx).toBe(214638);
   });
 
   it('projects forward from current usage using remaining days in the month', () => {
     // March (31 days): 0 kWh used, 1 kWh/day avg, today=Mar 15 → 16 remaining days → 16 kWh projected
-    expect(calculateEstimatedMonthlyBillUgx(0, 1, new Date(2026, 2, 1), new Date(2026, 2, 15))).toBe(11595);
+    expect(calculateEstimatedMonthlyBillUgx(0, 1, new Date(2026, 2, 1), new Date(2026, 2, 15))).toBe(9282);
     // April (30 days): same pace but 15 remaining days → 15 kWh projected (one less day)
-    expect(calculateEstimatedMonthlyBillUgx(0, 1, new Date(2026, 3, 1), new Date(2026, 3, 15))).toBe(10703);
+    expect(calculateEstimatedMonthlyBillUgx(0, 1, new Date(2026, 3, 1), new Date(2026, 3, 15))).toBe(8390);
   });
 });
