@@ -184,6 +184,25 @@ describe('lifeline eligibility', () => {
       buildPoint('2026-07-01', 15), // current month usage
     ];
     const summary = summarizePeriod([], history, today, today);
-    expect(summary.currentUsageCashUgx).toBe(22022); // non-lifeline first-15 rate applied
+    expect(summary.currentUsageCashUgx).toBe(22433); // non-lifeline first-15 at the Q3 rate (779.4)
+  });
+});
+
+describe('quarter-aware tariff', () => {
+  it('prices energy at the quarter in effect for the billing month', () => {
+    const may = new Date(2026, 4, 15); // Q2 2026
+    const jul = new Date(2026, 6, 15); // Q3 2026
+    const q2 = calculateCurrentUsageCashUgx([buildPoint('2026-05-01', 80)], may, may);
+    const q3 = calculateCurrentUsageCashUgx([buildPoint('2026-07-01', 80)], jul, jul);
+    expect(q2).toBe(71063); // 15*250 + 65*756.2, + service, x VAT (Q2)
+    expect(q3).toBe(72843); // 65 kWh at Q3's 779.4 instead of 756.2
+    expect(q3).toBeGreaterThan(q2);
+  });
+
+  it('uses the historical quarter when viewing a past month', () => {
+    // Viewing a June (Q2) bill from today in July still prices at Q2.
+    const jun = new Date(2026, 5, 15);
+    const q2Historical = calculateCurrentUsageCashUgx([buildPoint('2026-06-01', 80)], new Date(2026, 6, 2), jun);
+    expect(q2Historical).toBe(71063);
   });
 });
