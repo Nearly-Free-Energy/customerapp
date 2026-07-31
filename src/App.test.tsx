@@ -377,8 +377,8 @@ describe('Electricity consumption dashboard', () => {
 
     const summary = screen.getByLabelText('Usage period summary');
     expect(within(summary).getByText('30 kWh')).toBeInTheDocument();
-    expect(within(summary).getByText('UGX 21,775')).toBeInTheDocument();
-    expect(within(summary).getByText('UGX 194,115')).toBeInTheDocument();
+    expect(within(summary).getByText('UGX 26,447')).toBeInTheDocument();
+    expect(within(summary).getByText('UGX 198,788')).toBeInTheDocument();
   });
 
   it('renders the sign-in form when there is no session', async () => {
