@@ -154,6 +154,19 @@ Operational notes:
 - daily usage is computed from row timestamps, not the filename date
 - the seeded demo fallback is now opt-in with `ENABLE_USAGE_DEMO_FALLBACK=true`
 
+## Usage import from OpenEMS
+
+Meters with `meter_sources.source_type = 'openems'` are synchronized through server-side Vercel Functions. OpenEMS remains the reading source of truth; Supabase stores portal-ready daily kWh snapshots.
+
+The integration provides:
+
+- `POST /api/internal/openems-sync` for protected scheduled synchronization
+- `POST /api/sync-usage` for customer-authorized, per-service synchronization
+- `npm run openems:discover` for Edge/channel discovery and mapping
+- `npm run openems:backfill` for bounded historical imports
+
+Configuration, rollout, and Supabase Cron instructions are in [`docs/openems-integration-runbook.md`](docs/openems-integration-runbook.md).
+
 ## Vercel deployment
 
 This repository is set up for a trunk-based Vercel workflow:

@@ -79,11 +79,13 @@ const apiMocks = vi.hoisted(() => ({
       { date: '2026-03-25', usageValue: 22, unit: 'kWh', isFuture: false },
     ],
   })),
+  syncUsage: vi.fn(async () => ({ serviceId: 'service-demo', updatedDays: 1, syncedAt: '2026-03-25T12:00:00Z' })),
 }));
 
 vi.mock('./api', () => ({
   getMe: apiMocks.getMe,
   getUsage: apiMocks.getUsage,
+  syncUsage: apiMocks.syncUsage,
 }));
 
 vi.mock('./supabase', () => {
@@ -136,6 +138,12 @@ describe('Electricity consumption dashboard', () => {
     authStateListeners.length = 0;
     apiMocks.getMe.mockReset();
     apiMocks.getUsage.mockReset();
+    apiMocks.syncUsage.mockReset();
+    apiMocks.syncUsage.mockResolvedValue({
+      serviceId: 'service-demo',
+      updatedDays: 1,
+      syncedAt: '2026-03-25T12:00:00Z',
+    });
     apiMocks.getMe.mockResolvedValue({
       email: 'customer@example.com',
       profile: {
@@ -241,6 +249,18 @@ describe('Electricity consumption dashboard', () => {
     expect(within(controls).getByText('Mar 2026')).toBeInTheDocument();
     expect(await screen.findByText(/Showing seeded platform demo data from the backend/i)).toBeInTheDocument();
     expect(screen.getByText('Estimated End of Month Bill')).toBeInTheDocument();
+  });
+
+  it('synchronizes the selected service before reloading its usage', async () => {
+    const user = userEvent.setup();
+    renderApp();
+
+    await screen.findByLabelText('Monthly utility usage');
+    apiMocks.getUsage.mockClear();
+    await user.click(screen.getByRole('button', { name: 'Sync latest meter data' }));
+
+    expect(apiMocks.syncUsage).toHaveBeenCalledWith('test-token', 'service-demo');
+    expect(apiMocks.getUsage).toHaveBeenCalledWith('test-token', 'service-demo');
   });
 
   it('renders a service selector and reloads usage when switching services', async () => {

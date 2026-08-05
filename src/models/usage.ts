@@ -13,7 +13,7 @@ export type UsageApiResponse = {
   serviceId: string | null;
   serviceName: string | null;
   unit: UsageUnit;
-  source: 'database' | 'seeded-demo' | 'nextcloud-import' | 'pi-direct';
+  source: 'database' | 'seeded-demo' | 'nextcloud-import' | 'pi-direct' | 'openems';
   today: string;
   lastSyncedAt?: string | null;
   points: UsagePoint[];

@@ -13,6 +13,8 @@
     "db:onboard:customer": "node scripts/onboard-customer.js",
     "db:grant:account": "node scripts/grant-account-access.js",
     "db:import:usage": "node scripts/import-usage.js",
+    "openems:discover": "node --env-file-if-exists=.env --env-file-if-exists=env.txt scripts/discover-openems.js",
+    "openems:backfill": "node --env-file-if-exists=.env --env-file-if-exists=env.txt scripts/backfill-openems.js",
     "billing:generate": "node scripts/generate-billing.js"
   },
   "dependencies": {

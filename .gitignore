@@ -7,6 +7,7 @@ vite.config.d.ts
 playwright-report/
 test-results/
 .env
+env.txt
 .vercel
 supabase/.temp/
 config/billing-meter-map.json

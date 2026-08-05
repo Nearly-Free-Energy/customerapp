@@ -88,6 +88,8 @@ create table if not exists meter_sources (
   meter_name text,
   timezone text not null default 'UTC',
   status text not null default 'active',
+  openems_edge_id text,
+  openems_energy_channel text,
   last_successful_import_at timestamptz,
   last_imported_file text,
   last_error text,
@@ -116,6 +118,8 @@ create table if not exists usage_daily_snapshots (
   usage_date date not null,
   usage_kwh numeric(12,3),
   source text not null default 'estimated',
+  is_partial boolean not null default false,
+  synced_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (utility_service_id, usage_date)
@@ -132,6 +136,8 @@ create index if not exists idx_gateways_microgrid on gateways(microgrid_id);
 create index if not exists idx_field_devices_gateway on field_devices(gateway_id);
 create index if not exists idx_meter_sources_service on meter_sources(utility_service_id);
 create index if not exists idx_meter_sources_status on meter_sources(status);
+create index if not exists idx_meter_sources_openems_active on meter_sources(source_type, status)
+  where source_type = 'openems' and status = 'active';
 create index if not exists idx_usage_import_files_status on usage_import_files(import_status);
 create index if not exists idx_usage_import_files_meter_source on usage_import_files(meter_source_id);
 create index if not exists idx_usage_daily_snapshots_service_date on usage_daily_snapshots(utility_service_id, usage_date);

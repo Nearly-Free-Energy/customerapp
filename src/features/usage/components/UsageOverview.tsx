@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { getUsage } from '../../../api';
-import { supabase } from '../../../supabase';
+import { getUsage, syncUsage } from '../../../api';
 import { BottomControlTray } from '../../../components/BottomControlTray';
 import { UsageSummary } from '../../../components/UsageSummary';
 import { MonthlyCalendar } from '../../../components/MonthlyCalendar';
@@ -127,35 +126,21 @@ export function UsageOverview({ accessToken, accounts, services, previewUsageDat
       return;
     }
 
-    try {
-      const channel = supabase.channel('sync-commands', {
-        config: { broadcast: { self: false } },
-      });
-      await new Promise<void>((resolve) => {
-        channel.subscribe((status) => {
-          if (status === 'SUBSCRIBED') resolve();
-        });
-      });
-      await channel.send({ type: 'broadcast', event: 'sync_now', payload: {} });
-      await supabase.removeChannel(channel);
-    } catch {
-      // broadcast best-effort — still reload after delay
+    if (!selectedServiceId) {
+      setIsSyncing(false);
+      return;
     }
 
-    // Give the Pi a few seconds to push, then reload usage
-    if (syncReloadTimer.current) clearTimeout(syncReloadTimer.current);
-    syncReloadTimer.current = setTimeout(async () => {
-      if (!selectedServiceId) return;
-      try {
-        const next = await getUsage(accessToken, selectedServiceId);
-        setUsageData(next);
-        setAnchorDate(parseIsoDate(next.today));
-      } catch {
-        // silent — user can refresh manually
-      } finally {
-        setIsSyncing(false);
-      }
-    }, 5000);
+    try {
+      await syncUsage(accessToken, selectedServiceId);
+      const next = await getUsage(accessToken, selectedServiceId);
+      setUsageData(next);
+      setAnchorDate(parseIsoDate(next.today));
+    } catch (error) {
+      setUsageError(error instanceof Error ? error.message : 'Unable to synchronize usage.');
+    } finally {
+      setIsSyncing(false);
+    }
   }
 
   function formatServiceOptionLabel(service: UtilityService) {

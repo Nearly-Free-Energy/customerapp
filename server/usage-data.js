@@ -138,8 +138,9 @@ function shouldUseSeededFallback() {
   return process.env.ENABLE_USAGE_DEMO_FALLBACK === 'true';
 }
 
-function normalizeUsageSource(source) {
+export function normalizeUsageSource(source) {
   if (source === 'nextcloud-import') return 'nextcloud-import';
   if (source === 'pi-direct' || source === 'pi-direct-backfill') return 'pi-direct';
+  if (source === 'openems') return 'openems';
   return 'database';
 }

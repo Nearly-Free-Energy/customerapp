@@ -10,9 +10,27 @@ export async function getUsage(accessToken: string, serviceId?: string): Promise
   return requestJson<UsageApiResponse>(`/api/usage${query}`, accessToken, 'Unable to load usage.');
 }
 
-async function requestJson<T>(url: string, accessToken: string, defaultErrorMessage: string): Promise<T> {
+export async function syncUsage(
+  accessToken: string,
+  serviceId: string,
+): Promise<{ serviceId: string; updatedDays: number; syncedAt: string }> {
+  return requestJson('/api/sync-usage', accessToken, 'Unable to synchronize usage.', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ serviceId }),
+  });
+}
+
+async function requestJson<T>(
+  url: string,
+  accessToken: string,
+  defaultErrorMessage: string,
+  init: RequestInit = {},
+): Promise<T> {
   const response = await fetch(url, {
+    ...init,
     headers: {
+      ...init.headers,
       Authorization: `Bearer ${accessToken}`,
     },
   });
