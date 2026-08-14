@@ -98,7 +98,7 @@ describe('OpenEMS JSON-RPC client', () => {
     ]));
   });
 
-  it('skips unavailable leading days but rejects an entirely invalid range', async () => {
+  it('skips only unavailable days proven to predate history', async () => {
     const fetchImpl = vi.fn(async (_url: string, init: RequestInit) => {
       const request = JSON.parse(String(init.body));
       const fromDate = request.params.payload.params.fromDate;
@@ -119,6 +119,7 @@ describe('OpenEMS JSON-RPC client', () => {
       toDate: '2026-08-13',
       timezone: 'Africa/Kampala',
       currentDate: '2026-08-14',
+      historyStartDate: '2026-08-13',
     })).resolves.toEqual([
       { date: '2026-08-12', value: null },
       { date: '2026-08-13', value: 120 },

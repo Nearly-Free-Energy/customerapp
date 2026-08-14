@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { OpenEmsError } from '../server/openems-client.js';
-import { buildMonthlyRanges, syncAllOpenEmsMeters, syncOpenEmsMeter, syncOpenEmsRanges } from '../server/openems-sync.js';
+import { buildMonthlyRanges, syncAllOpenEmsMeters, syncOpenEmsMeter } from '../server/openems-sync.js';
 import { normalizeUsageSource } from '../server/usage-data.js';
 
 function createWriteClient(meterSources: Array<Record<string, unknown>> = []) {
@@ -153,30 +152,6 @@ describe('OpenEMS synchronization', () => {
       { fromDate: '2026-02-01', toDate: '2026-02-28' },
       { fromDate: '2026-03-01', toDate: '2026-03-02' },
     ]);
-  });
-
-  it('skips leading unavailable backfill chunks but rejects later gaps', async () => {
-    const client = createWriteClient();
-    const unavailable = new OpenEmsError('HTTP 400', 'HTTP_ERROR', 400);
-    const queryDailyEnergy = vi.fn()
-      .mockRejectedValueOnce(unavailable)
-      .mockResolvedValueOnce([{ date: '2026-02-01', value: 100 }]);
-
-    await expect(syncOpenEmsRanges(meterSource, [
-      { fromDate: '2026-01-30', toDate: '2026-01-31' },
-      { fromDate: '2026-02-01', toDate: '2026-02-28' },
-    ], { client, openEmsClient: { queryDailyEnergy } })).resolves.toHaveLength(1);
-
-    queryDailyEnergy.mockRejectedValueOnce(unavailable);
-    await expect(syncOpenEmsRanges(meterSource, [
-      { fromDate: '2026-03-01', toDate: '2026-03-31' },
-    ], { client, openEmsClient: { queryDailyEnergy } })).rejects.toThrow('HTTP 400');
-
-    queryDailyEnergy.mockResolvedValueOnce([{ date: '2026-03-01', value: 100 }]).mockRejectedValueOnce(unavailable);
-    await expect(syncOpenEmsRanges(meterSource, [
-      { fromDate: '2026-03-01', toDate: '2026-03-31' },
-      { fromDate: '2026-04-01', toDate: '2026-04-30' },
-    ], { client, openEmsClient: { queryDailyEnergy } })).rejects.toThrow('HTTP 400');
   });
 
   it('preserves OpenEMS as the public usage source', () => {

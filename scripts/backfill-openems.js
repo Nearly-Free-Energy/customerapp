@@ -1,5 +1,5 @@
 import { createOpenEmsClient } from '../server/openems-client.js';
-import { buildMonthlyRanges, formatDateInTimeZone, syncOpenEmsRanges } from '../server/openems-sync.js';
+import { buildMonthlyRanges, formatDateInTimeZone, syncOpenEmsMeter } from '../server/openems-sync.js';
 import { createServerSupabaseClient } from '../server/supabase-admin.js';
 
 const args = parseArgs(process.argv.slice(2));
@@ -14,7 +14,7 @@ if (!meterId || !fromDate) {
 const client = createServerSupabaseClient();
 const { data: meterSource, error } = await client
   .from('meter_sources')
-  .select('id, utility_service_id, meter_id, timezone, openems_edge_id, openems_energy_channel')
+  .select('id, utility_service_id, meter_id, timezone, openems_edge_id, openems_energy_channel, openems_history_start_date')
   .eq('meter_id', meterId)
   .eq('source_type', 'openems')
   .eq('status', 'active')
@@ -25,11 +25,13 @@ if (!meterSource) throw new Error(`No active OpenEMS mapping exists for meter ${
 
 const openEmsClient = createOpenEmsClient();
 const ranges = buildMonthlyRanges(fromDate, toDate);
-const results = await syncOpenEmsRanges(meterSource, ranges, {
-  client,
-  openEmsClient,
-  onResult: (result) => console.log(JSON.stringify(result)),
-});
+const results = [];
+
+for (const range of ranges) {
+  const result = await syncOpenEmsMeter(meterSource, { client, openEmsClient, ...range });
+  results.push(result);
+  console.log(JSON.stringify(result));
+}
 
 console.log(JSON.stringify({ meterId, ranges: results.length, updatedDays: results.reduce((sum, item) => sum + item.updatedDays, 0) }, null, 2));
 

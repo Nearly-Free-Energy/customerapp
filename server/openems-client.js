@@ -125,13 +125,13 @@ export function createOpenEmsClient(config = resolveOpenEmsConfig(), options = {
       return callEdge(edgeId, 'getEdgeConfig', {});
     },
 
-    async queryDailyEnergy({ edgeId, channel, fromDate, toDate, timezone, currentDate }) {
+    async queryDailyEnergy({ edgeId, channel, fromDate, toDate, timezone, currentDate, historyStartDate }) {
       const dates = listIsoDates(fromDate, toDate);
-      const results = [];
+      const readings = [];
 
       for (let index = 0; index < dates.length; index += DAILY_RANGE_CONCURRENCY) {
         const batch = dates.slice(index, index + DAILY_RANGE_CONCURRENCY);
-        results.push(...await Promise.all(batch.map(async (date) => {
+        readings.push(...await Promise.all(batch.map(async (date) => {
           try {
             const value = await queryRangeEnergy({
               edgeId,
@@ -142,21 +142,16 @@ export function createOpenEmsClient(config = resolveOpenEmsConfig(), options = {
             });
             return { date, value };
           } catch (error) {
-            if (error instanceof OpenEmsError && error.code === 'HTTP_ERROR' && error.status === 400) {
-              return { date, value: null, unavailableError: error };
+            const predatesHistory = historyStartDate && date < historyStartDate;
+            if (predatesHistory && error instanceof OpenEmsError && error.code === 'HTTP_ERROR' && error.status === 400) {
+              return { date, value: null };
             }
             throw error;
           }
         })));
       }
 
-      const firstSuccessfulIndex = results.findIndex((result) => !result.unavailableError);
-      if (firstSuccessfulIndex === -1) throw results[0].unavailableError;
-
-      const laterFailure = results.slice(firstSuccessfulIndex + 1).find((result) => result.unavailableError);
-      if (laterFailure) throw laterFailure.unavailableError;
-
-      return results.map(({ date, value }) => ({ date, value }));
+      return readings;
     },
 
     queryRangeEnergy,
