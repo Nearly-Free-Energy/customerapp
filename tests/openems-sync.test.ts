@@ -79,20 +79,18 @@ describe('OpenEMS synchronization', () => {
       client,
       openEmsClient: {
         queryDailyEnergy: vi.fn(async () => [{ date: '2026-08-05', value: null }]),
-        queryRangeEnergy: vi.fn(async () => null),
       },
     });
     expect(client.state.snapshots).toEqual([]);
   });
 
-  it('uses range energy when a new channel has no daily boundary yet', async () => {
+  it('writes current-day range energy returned by the client', async () => {
     const client = createWriteClient();
     const result = await syncOpenEmsMeter(meterSource, {
       client,
       now: new Date('2026-08-14T10:00:00Z'),
       openEmsClient: {
-        queryDailyEnergy: vi.fn(async () => []),
-        queryRangeEnergy: vi.fn(async () => 125),
+        queryDailyEnergy: vi.fn(async () => [{ date: '2026-08-14', value: 125 }]),
       },
     });
 
@@ -118,6 +116,34 @@ describe('OpenEMS synchronization', () => {
 
     expect(result).toMatchObject({ processedMeters: 2, successCount: 1, errorCount: 1, updatedDays: 1 });
     expect(client.state.updates).toContainEqual(expect.objectContaining({ id: 'source-2', last_error: 'offline' }));
+  });
+
+  it('synchronizes at most two meters concurrently', async () => {
+    const meterSources = [0, 1, 2].map((index) => ({
+      ...meterSource,
+      id: `source-${index}`,
+      meter_id: `meter-${index}`,
+      utility_service_id: `service-${index}`,
+    }));
+    const client = createWriteClient(meterSources);
+    let active = 0;
+    let maxActive = 0;
+
+    await syncAllOpenEmsMeters({
+      client,
+      openEmsClient: {
+        queryDailyEnergy: vi.fn(async () => {
+          active += 1;
+          maxActive = Math.max(maxActive, active);
+          await new Promise((resolve) => setTimeout(resolve, 5));
+          active -= 1;
+          return [{ date: '2026-08-05', value: 100 }];
+        }),
+      },
+      now: new Date('2026-08-05T12:00:00Z'),
+    });
+
+    expect(maxActive).toBe(2);
   });
 
   it('builds bounded monthly ranges for backfills', () => {

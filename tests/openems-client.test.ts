@@ -4,12 +4,11 @@ import {
   createOpenEmsClient,
   findEnergyChannelCandidates,
   OpenEmsError,
-  parseDailyEnergyResponse,
   parseRangeEnergyResponse,
 } from '../server/openems-client.js';
 
 describe('OpenEMS JSON-RPC client', () => {
-  it('wraps historical queries in Edge-RPC and authenticates with Basic Auth', async () => {
+  it('queries each Kampala day as an authenticated historical range', async () => {
     const fetchImpl = vi.fn(async (_url: string, init: RequestInit) => {
       const request = JSON.parse(String(init.body));
       return new Response(JSON.stringify({
@@ -19,10 +18,7 @@ describe('OpenEMS JSON-RPC client', () => {
           payload: {
             jsonrpc: '2.0',
             id: request.params.payload.id,
-            result: {
-              timestamps: ['2026-08-04T21:00:00Z'],
-              data: { '_sum/GridBuyActiveEnergy': [1250] },
-            },
+            result: { data: { '_sum/GridBuyActiveEnergy': 1250 } },
           },
         },
       }), { status: 200, headers: { 'Content-Type': 'application/json' } });
@@ -38,6 +34,7 @@ describe('OpenEMS JSON-RPC client', () => {
       fromDate: '2026-08-05',
       toDate: '2026-08-05',
       timezone: 'Africa/Kampala',
+      currentDate: '2026-08-06',
     });
 
     expect(result).toEqual([{ date: '2026-08-05', value: 1250 }]);
@@ -54,14 +51,51 @@ describe('OpenEMS JSON-RPC client', () => {
       params: {
         edgeId: 'edge0',
         payload: {
-          method: 'queryHistoricTimeseriesEnergyPerPeriod',
+          method: 'queryHistoricTimeseriesEnergy',
           params: {
+            fromDate: '2026-08-05',
+            toDate: '2026-08-06',
             timezone: 'Africa/Kampala',
-            resolution: { value: 1, unit: 'DAYS' },
           },
         },
       },
     });
+  });
+
+  it('returns one range result for every requested day', async () => {
+    const fetchImpl = vi.fn(async (_url: string, init: RequestInit) => {
+      const request = JSON.parse(String(init.body));
+      const fromDate = request.params.payload.params.fromDate;
+      return new Response(JSON.stringify({
+        result: {
+          payload: {
+            result: { data: { 'meter0/Energy': fromDate === '2026-08-13' ? 120 : 30 } },
+          },
+        },
+      }), { status: 200 });
+    });
+    const client = createOpenEmsClient(
+      { baseUrl: 'https://openems.example.test', username: 'worker', password: 'secret', timeoutMs: 1000 },
+      { fetchImpl },
+    );
+
+    await expect(client.queryDailyEnergy({
+      edgeId: 'edge0',
+      channel: 'meter0/Energy',
+      fromDate: '2026-08-13',
+      toDate: '2026-08-14',
+      timezone: 'Africa/Kampala',
+      currentDate: '2026-08-14',
+    })).resolves.toEqual([
+      { date: '2026-08-13', value: 120 },
+      { date: '2026-08-14', value: 30 },
+    ]);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    const requests = fetchImpl.mock.calls.map((call) => JSON.parse(String(call[1].body)).params.payload.params);
+    expect(requests).toEqual(expect.arrayContaining([
+      expect.objectContaining({ fromDate: '2026-08-13', toDate: '2026-08-14' }),
+      expect.objectContaining({ fromDate: '2026-08-14', toDate: '2026-08-14' }),
+    ]));
   });
 
   it('surfaces nested JSON-RPC failures', async () => {
@@ -117,9 +151,6 @@ describe('OpenEMS JSON-RPC client', () => {
   });
 
   it('rejects malformed historical data and invalid energy', () => {
-    expect(() => parseDailyEnergyResponse({ timestamps: [], data: {} }, 'meter0/Energy', 'Africa/Kampala')).toThrow(
-      'malformed historical energy data',
-    );
     expect(() => parseRangeEnergyResponse({ data: { 'meter0/Energy': 'bad' } }, 'meter0/Energy')).toThrow(
       'malformed historical range energy',
     );
