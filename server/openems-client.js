@@ -163,8 +163,12 @@ export function parseDailyEnergyResponse(result, channel, timezone) {
 }
 
 export function parseRangeEnergyResponse(result, channel) {
+  if (!result?.data || !Object.prototype.hasOwnProperty.call(result.data, channel)) {
+    throw new OpenEmsError('OpenEMS returned malformed historical range energy.', 'INVALID_RESPONSE');
+  }
+
   const value = result?.data?.[channel];
-  if (value === null || value === undefined) return null;
+  if (value === null) return null;
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     throw new OpenEmsError('OpenEMS returned malformed historical range energy.', 'INVALID_RESPONSE');
   }

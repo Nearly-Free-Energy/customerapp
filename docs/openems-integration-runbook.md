@@ -60,7 +60,7 @@ Do not enable the schedule until discovery and the full backfill have been verif
 1. In Supabase Vault, create `openems_sync_url` containing the production URL ending in `/api/internal/openems-sync`.
 2. Create `openems_sync_secret` containing the same value as Vercel's `OPENEMS_SYNC_SECRET`.
 3. Enable the Cron and `pg_net` integrations in the Supabase Dashboard.
-4. Create an hourly SQL job with the following command:
+4. Create an hourly SQL job named `openems-hourly-sync` with the following command:
 
 ```sql
 select net.http_post(
@@ -71,7 +71,8 @@ select net.http_post(
       select decrypted_secret from vault.decrypted_secrets where name = 'openems_sync_secret'
     )
   ),
-  body := '{}'::jsonb
+  body := '{}'::jsonb,
+  timeout_milliseconds := 60000
 );
 ```
 
