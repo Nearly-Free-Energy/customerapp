@@ -41,6 +41,26 @@ export async function syncOpenEmsService(serviceId, options = {}) {
   });
 }
 
+export async function syncOpenEmsRanges(meterSource, ranges, options = {}) {
+  const results = [];
+  let leadingUnavailableError = null;
+
+  for (const range of ranges) {
+    try {
+      const result = await syncOpenEmsMeter(meterSource, { ...options, ...range });
+      results.push(result);
+      options.onResult?.(result);
+    } catch (error) {
+      const isUnavailableRange = error instanceof OpenEmsError && error.code === 'HTTP_ERROR' && error.status === 400;
+      if (!isUnavailableRange || results.length > 0) throw error;
+      leadingUnavailableError ??= error;
+    }
+  }
+
+  if (results.length === 0 && leadingUnavailableError) throw leadingUnavailableError;
+  return results;
+}
+
 export async function syncOpenEmsMeter(meterSource, options = {}) {
   validateMeterSource(meterSource);
   const client = options.client ?? createServerSupabaseClient();
