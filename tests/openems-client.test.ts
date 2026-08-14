@@ -159,6 +159,44 @@ describe('OpenEMS JSON-RPC client', () => {
     })).rejects.toThrow('HTTP 400');
   });
 
+  it('uses period data when a mapped channel rejects daily ranges', async () => {
+    const fetchImpl = vi.fn(async (_url: string, init: RequestInit) => {
+      const request = JSON.parse(String(init.body));
+      if (request.params.payload.method === 'queryHistoricTimeseriesEnergy') {
+        return new Response('', { status: 400 });
+      }
+      return new Response(JSON.stringify({
+        result: {
+          payload: {
+            result: {
+              timestamps: ['2026-08-12T21:00:00Z', '2026-08-13T21:00:00Z'],
+              data: { '_sum/ConsumptionActiveEnergy': [250, 20] },
+            },
+          },
+        },
+      }), { status: 200 });
+    });
+    const client = createOpenEmsClient(
+      { baseUrl: 'https://openems.example.test', username: 'worker', password: 'secret', timeoutMs: 1000 },
+      { fetchImpl },
+    );
+
+    await expect(client.queryDailyEnergy({
+      edgeId: 'edge0',
+      channel: '_sum/ConsumptionActiveEnergy',
+      fromDate: '2026-08-13',
+      toDate: '2026-08-14',
+      timezone: 'Africa/Kampala',
+      currentDate: '2026-08-14',
+    })).resolves.toEqual([
+      { date: '2026-08-13', value: 250 },
+      { date: '2026-08-14', value: 20 },
+    ]);
+    expect(fetchImpl.mock.calls.some((call) => (
+      JSON.parse(String(call[1].body)).params.payload.method === 'queryHistoricTimeseriesEnergyPerPeriod'
+    ))).toBe(true);
+  });
+
   it('surfaces nested JSON-RPC failures', async () => {
     const client = createOpenEmsClient(
       { baseUrl: 'https://openems.example.test', username: 'worker', password: 'secret', timeoutMs: 1000 },
