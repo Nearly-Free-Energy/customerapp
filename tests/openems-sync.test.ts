@@ -79,20 +79,18 @@ describe('OpenEMS synchronization', () => {
       client,
       openEmsClient: {
         queryDailyEnergy: vi.fn(async () => [{ date: '2026-08-05', value: null }]),
-        queryRangeEnergy: vi.fn(async () => null),
       },
     });
     expect(client.state.snapshots).toEqual([]);
   });
 
-  it('uses range energy when a new channel has no daily boundary yet', async () => {
+  it('writes current-day range energy returned by the client', async () => {
     const client = createWriteClient();
     const result = await syncOpenEmsMeter(meterSource, {
       client,
       now: new Date('2026-08-14T10:00:00Z'),
       openEmsClient: {
-        queryDailyEnergy: vi.fn(async () => []),
-        queryRangeEnergy: vi.fn(async () => 125),
+        queryDailyEnergy: vi.fn(async () => [{ date: '2026-08-14', value: 125 }]),
       },
     });
 
