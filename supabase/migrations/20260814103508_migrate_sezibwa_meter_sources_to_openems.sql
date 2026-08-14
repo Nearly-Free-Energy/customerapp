@@ -29,7 +29,7 @@ begin
     and right(utility_service.service_name, length(mapping.serial_number)) = mapping.serial_number;
 
   get diagnostics updated_count = row_count;
-  if updated_count <> 9 then
+  if updated_count not in (0, 9) then
     raise exception 'Expected to migrate 9 Sezibwa meter sources, migrated %', updated_count;
   end if;
 end

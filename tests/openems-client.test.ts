@@ -123,6 +123,10 @@ describe('OpenEMS JSON-RPC client', () => {
     expect(() => parseRangeEnergyResponse({ data: { 'meter0/Energy': 'bad' } }, 'meter0/Energy')).toThrow(
       'malformed historical range energy',
     );
+    expect(parseRangeEnergyResponse({ data: { 'meter0/Energy': null } }, 'meter0/Energy')).toBeNull();
+    expect(() => parseRangeEnergyResponse({ data: {} }, 'meter0/Energy')).toThrow(
+      'malformed historical range energy',
+    );
     expect(() => convertEnergyToKwh(-1)).toThrow(OpenEmsError);
     expect(convertEnergyToKwh(1250, 'Wh')).toBe(1.25);
     expect(convertEnergyToKwh(1.25, 'kWh')).toBe(1.25);
