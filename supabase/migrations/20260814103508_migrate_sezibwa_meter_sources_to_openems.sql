@@ -1,7 +1,18 @@
 do $$
 declare
+  existing_count integer;
   updated_count integer;
 begin
+  select count(*)
+  into existing_count
+  from public.meter_sources
+  where meter_id = any (array[
+    '8', '2', '3', '5', '4', '6', '100', '10', '9',
+    '200326019807', '200326019929', '200326020101',
+    '200326020128', '200326020199', '200326020209',
+    '221123297561', '250902040216', '250902040373'
+  ]);
+
   with mappings(serial_number, legacy_meter_id) as (
     values
       ('200326019807', '8'),
@@ -29,7 +40,7 @@ begin
     and right(utility_service.service_name, length(mapping.serial_number)) = mapping.serial_number;
 
   get diagnostics updated_count = row_count;
-  if updated_count not in (0, 9) then
+  if updated_count <> 9 and not (updated_count = 0 and existing_count = 0) then
     raise exception 'Expected to migrate 9 Sezibwa meter sources, migrated %', updated_count;
   end if;
 end
