@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from './supabase-admin.js';
 
 const DEFAULT_TIMEZONE = 'Africa/Kampala';
 const DEFAULT_OVERLAP_DAYS = 3;
+const METER_SYNC_CONCURRENCY = 2;
 
 export async function syncAllOpenEmsMeters(options = {}) {
   const client = options.client ?? createServerSupabaseClient();
@@ -10,14 +11,17 @@ export async function syncAllOpenEmsMeters(options = {}) {
   const meterSources = await loadOpenEmsMeterSources(client);
   const results = [];
 
-  for (const meterSource of meterSources) {
-    try {
-      results.push(await syncOpenEmsMeter(meterSource, { ...options, client, openEmsClient }));
-    } catch (error) {
-      const message = getErrorMessage(error);
-      await updateMeterSourceFailure(meterSource.id, message, client);
-      results.push({ meterId: meterSource.meter_id, serviceId: meterSource.utility_service_id, updatedDays: 0, error: message });
-    }
+  for (let index = 0; index < meterSources.length; index += METER_SYNC_CONCURRENCY) {
+    const batch = meterSources.slice(index, index + METER_SYNC_CONCURRENCY);
+    results.push(...await Promise.all(batch.map(async (meterSource) => {
+      try {
+        return await syncOpenEmsMeter(meterSource, { ...options, client, openEmsClient });
+      } catch (error) {
+        const message = getErrorMessage(error);
+        await updateMeterSourceFailure(meterSource.id, message, client);
+        return { meterId: meterSource.meter_id, serviceId: meterSource.utility_service_id, updatedDays: 0, error: message };
+      }
+    })));
   }
 
   return summarizeResults(results);

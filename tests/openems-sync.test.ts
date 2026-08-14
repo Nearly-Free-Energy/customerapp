@@ -118,6 +118,34 @@ describe('OpenEMS synchronization', () => {
     expect(client.state.updates).toContainEqual(expect.objectContaining({ id: 'source-2', last_error: 'offline' }));
   });
 
+  it('synchronizes at most two meters concurrently', async () => {
+    const meterSources = [0, 1, 2].map((index) => ({
+      ...meterSource,
+      id: `source-${index}`,
+      meter_id: `meter-${index}`,
+      utility_service_id: `service-${index}`,
+    }));
+    const client = createWriteClient(meterSources);
+    let active = 0;
+    let maxActive = 0;
+
+    await syncAllOpenEmsMeters({
+      client,
+      openEmsClient: {
+        queryDailyEnergy: vi.fn(async () => {
+          active += 1;
+          maxActive = Math.max(maxActive, active);
+          await new Promise((resolve) => setTimeout(resolve, 5));
+          active -= 1;
+          return [{ date: '2026-08-05', value: 100 }];
+        }),
+      },
+      now: new Date('2026-08-05T12:00:00Z'),
+    });
+
+    expect(maxActive).toBe(2);
+  });
+
   it('builds bounded monthly ranges for backfills', () => {
     expect(buildMonthlyRanges('2026-01-30', '2026-03-02')).toEqual([
       { fromDate: '2026-01-30', toDate: '2026-01-31' },
