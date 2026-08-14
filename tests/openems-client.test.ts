@@ -5,6 +5,7 @@ import {
   findEnergyChannelCandidates,
   OpenEmsError,
   parseDailyEnergyResponse,
+  parseRangeEnergyResponse,
 } from '../server/openems-client.js';
 
 describe('OpenEMS JSON-RPC client', () => {
@@ -74,6 +75,35 @@ describe('OpenEMS JSON-RPC client', () => {
     await expect(client.getEdgeConfig('edge0')).rejects.toThrow('Edge is not connected');
   });
 
+  it('queries and parses range energy for a partial day', async () => {
+    const fetchImpl = vi.fn(async (_url: string, init: RequestInit) => {
+      const request = JSON.parse(String(init.body));
+      return new Response(JSON.stringify({
+        result: {
+          payload: {
+            id: request.params.payload.id,
+            result: { data: { 'meter0/ActiveConsumptionEnergy': 125 } },
+          },
+        },
+      }), { status: 200 });
+    });
+    const client = createOpenEmsClient(
+      { baseUrl: 'https://openems.example.test', username: 'worker', password: 'secret', timeoutMs: 1000 },
+      { fetchImpl },
+    );
+
+    await expect(client.queryRangeEnergy({
+      edgeId: 'edge0',
+      channel: 'meter0/ActiveConsumptionEnergy',
+      fromDate: '2026-08-14',
+      toDate: '2026-08-14',
+      timezone: 'Africa/Kampala',
+    })).resolves.toBe(125);
+
+    const sentBody = JSON.parse(String(fetchImpl.mock.calls[0][1].body));
+    expect(sentBody.params.payload.method).toBe('queryHistoricTimeseriesEnergy');
+  });
+
   it('aborts requests that exceed the configured timeout', async () => {
     const fetchImpl = vi.fn((_url: string, init: RequestInit) => new Promise<Response>((_resolve, reject) => {
       init.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
@@ -89,6 +119,9 @@ describe('OpenEMS JSON-RPC client', () => {
   it('rejects malformed historical data and invalid energy', () => {
     expect(() => parseDailyEnergyResponse({ timestamps: [], data: {} }, 'meter0/Energy', 'Africa/Kampala')).toThrow(
       'malformed historical energy data',
+    );
+    expect(() => parseRangeEnergyResponse({ data: { 'meter0/Energy': 'bad' } }, 'meter0/Energy')).toThrow(
+      'malformed historical range energy',
     );
     expect(() => convertEnergyToKwh(-1)).toThrow(OpenEmsError);
     expect(convertEnergyToKwh(1250, 'Wh')).toBe(1.25);

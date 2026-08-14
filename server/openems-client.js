@@ -123,6 +123,17 @@ export function createOpenEmsClient(config = resolveOpenEmsConfig(), options = {
 
       return parseDailyEnergyResponse(result, channel, timezone);
     },
+
+    async queryRangeEnergy({ edgeId, channel, fromDate, toDate, timezone }) {
+      const result = await callEdge(edgeId, 'queryHistoricTimeseriesEnergy', {
+        fromDate,
+        toDate,
+        channels: [channel],
+        timezone,
+      });
+
+      return parseRangeEnergyResponse(result, channel);
+    },
   };
 }
 
@@ -149,6 +160,15 @@ export function parseDailyEnergyResponse(result, channel, timezone) {
       value,
     };
   });
+}
+
+export function parseRangeEnergyResponse(result, channel) {
+  const value = result?.data?.[channel];
+  if (value === null || value === undefined) return null;
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new OpenEmsError('OpenEMS returned malformed historical range energy.', 'INVALID_RESPONSE');
+  }
+  return value;
 }
 
 export function convertEnergyToKwh(value, unit = 'Wh') {
