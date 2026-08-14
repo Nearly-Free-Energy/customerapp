@@ -4,10 +4,11 @@ const DEFAULT_TIMEOUT_MS = 20_000;
 const DAILY_RANGE_CONCURRENCY = 2;
 
 export class OpenEmsError extends Error {
-  constructor(message, code = 'OPENEMS_ERROR') {
+  constructor(message, code = 'OPENEMS_ERROR', status = null) {
     super(message);
     this.name = 'OpenEmsError';
     this.code = code;
+    this.status = status;
   }
 }
 
@@ -86,7 +87,7 @@ export function createOpenEmsClient(config = resolveOpenEmsConfig(), options = {
       });
 
       if (!response.ok) {
-        throw new OpenEmsError(`OpenEMS request failed with HTTP ${response.status}.`, 'HTTP_ERROR');
+        throw new OpenEmsError(`OpenEMS request failed with HTTP ${response.status}.`, 'HTTP_ERROR', response.status);
       }
 
       try {
@@ -127,21 +128,33 @@ export function createOpenEmsClient(config = resolveOpenEmsConfig(), options = {
     async queryDailyEnergy({ edgeId, channel, fromDate, toDate, timezone, currentDate }) {
       const dates = listIsoDates(fromDate, toDate);
       const readings = [];
+      let successfulRequests = 0;
+      let unavailableError = null;
 
       for (let index = 0; index < dates.length; index += DAILY_RANGE_CONCURRENCY) {
         const batch = dates.slice(index, index + DAILY_RANGE_CONCURRENCY);
-        readings.push(...await Promise.all(batch.map(async (date) => ({
-          date,
-          value: await queryRangeEnergy({
-            edgeId,
-            channel,
-            fromDate: date,
-            toDate: date === currentDate ? date : addIsoDays(date, 1),
-            timezone,
-          }),
-        }))));
+        readings.push(...await Promise.all(batch.map(async (date) => {
+          try {
+            const value = await queryRangeEnergy({
+              edgeId,
+              channel,
+              fromDate: date,
+              toDate: date === currentDate ? date : addIsoDays(date, 1),
+              timezone,
+            });
+            successfulRequests += 1;
+            return { date, value };
+          } catch (error) {
+            if (error instanceof OpenEmsError && error.code === 'HTTP_ERROR' && error.status === 400) {
+              unavailableError ??= error;
+              return { date, value: null };
+            }
+            throw error;
+          }
+        })));
       }
 
+      if (successfulRequests === 0 && unavailableError) throw unavailableError;
       return readings;
     },
 
