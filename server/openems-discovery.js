@@ -28,6 +28,7 @@ export async function discoverOpenEmsMeter(input, options = {}) {
           fromDate: addIsoDays(today, -30),
           toDate: today,
           timezone,
+          currentDate: today,
         });
         const values = readings.filter((reading) => typeof reading.value === 'number' && reading.value >= 0);
         if (values.length > 0) {
