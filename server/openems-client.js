@@ -120,42 +120,90 @@ export function createOpenEmsClient(config = resolveOpenEmsConfig(), options = {
     return parseRangeEnergyResponse(result, channel);
   }
 
+  async function queryDailyRanges({ edgeId, channel, fromDate, toDate, timezone, currentDate, historyStartDate }) {
+    const dates = listIsoDates(fromDate, toDate);
+    const readings = [];
+
+    for (let index = 0; index < dates.length; index += DAILY_RANGE_CONCURRENCY) {
+      const batch = dates.slice(index, index + DAILY_RANGE_CONCURRENCY);
+      readings.push(...await Promise.all(batch.map(async (date) => {
+        try {
+          const value = await queryRangeEnergy({
+            edgeId,
+            channel,
+            fromDate: date,
+            toDate: date === currentDate ? date : addIsoDays(date, 1),
+            timezone,
+          });
+          return { date, value };
+        } catch (error) {
+          const predatesHistory = historyStartDate && date < historyStartDate;
+          if (predatesHistory && error instanceof OpenEmsError && error.code === 'HTTP_ERROR' && error.status === 400) {
+            return { date, value: null };
+          }
+          throw error;
+        }
+      })));
+    }
+
+    return readings;
+  }
+
+  async function queryPeriodEnergy({ edgeId, channel, fromDate, toDate, timezone }) {
+    const result = await callEdge(edgeId, 'queryHistoricTimeseriesEnergyPerPeriod', {
+      fromDate,
+      toDate,
+      channels: [channel],
+      timezone,
+      resolution: { value: 1, unit: 'DAYS' },
+    });
+    return parsePeriodEnergyResponse(result, channel, timezone);
+  }
+
   return {
     getEdgeConfig(edgeId) {
       return callEdge(edgeId, 'getEdgeConfig', {});
     },
 
     async queryDailyEnergy({ edgeId, channel, fromDate, toDate, timezone, currentDate, historyStartDate }) {
-      const dates = listIsoDates(fromDate, toDate);
-      const readings = [];
+      try {
+        return await queryDailyRanges({ edgeId, channel, fromDate, toDate, timezone, currentDate, historyStartDate });
+      } catch (error) {
+        const canUseCompatibilityFallback = error instanceof OpenEmsError && error.code === 'HTTP_ERROR' && error.status === 400;
+        if (!canUseCompatibilityFallback) throw error;
 
-      for (let index = 0; index < dates.length; index += DAILY_RANGE_CONCURRENCY) {
-        const batch = dates.slice(index, index + DAILY_RANGE_CONCURRENCY);
-        readings.push(...await Promise.all(batch.map(async (date) => {
-          try {
-            const value = await queryRangeEnergy({
-              edgeId,
-              channel,
-              fromDate: date,
-              toDate: date === currentDate ? date : addIsoDays(date, 1),
-              timezone,
-            });
-            return { date, value };
-          } catch (error) {
-            const predatesHistory = historyStartDate && date < historyStartDate;
-            if (predatesHistory && error instanceof OpenEmsError && error.code === 'HTTP_ERROR' && error.status === 400) {
-              return { date, value: null };
-            }
-            throw error;
-          }
-        })));
+        try {
+          const readings = await queryPeriodEnergy({ edgeId, channel, fromDate, toDate, timezone });
+          if (!readings.some((reading) => typeof reading.value === 'number')) throw error;
+          return readings;
+        } catch {
+          throw error;
+        }
       }
-
-      return readings;
     },
 
     queryRangeEnergy,
   };
+}
+
+export function parsePeriodEnergyResponse(result, channel, timezone) {
+  const timestamps = result?.timestamps;
+  const values = result?.data?.[channel];
+  if (!Array.isArray(timestamps) || !Array.isArray(values) || timestamps.length !== values.length) {
+    throw new OpenEmsError('OpenEMS returned malformed historical period energy.', 'INVALID_RESPONSE');
+  }
+
+  return timestamps.map((timestamp, index) => {
+    const parsedTimestamp = new Date(timestamp);
+    if (Number.isNaN(parsedTimestamp.getTime())) {
+      throw new OpenEmsError(`OpenEMS returned an invalid timestamp: ${timestamp}.`, 'INVALID_RESPONSE');
+    }
+    const value = values[index];
+    if (value !== null && (typeof value !== 'number' || !Number.isFinite(value))) {
+      throw new OpenEmsError(`OpenEMS returned an invalid energy value for ${timestamp}.`, 'INVALID_RESPONSE');
+    }
+    return { date: formatDateInTimeZone(parsedTimestamp, timezone), value };
+  });
 }
 
 function listIsoDates(fromDate, toDate) {
