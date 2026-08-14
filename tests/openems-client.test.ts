@@ -98,6 +98,67 @@ describe('OpenEMS JSON-RPC client', () => {
     ]));
   });
 
+  it('skips only unavailable days proven to predate history', async () => {
+    const fetchImpl = vi.fn(async (_url: string, init: RequestInit) => {
+      const request = JSON.parse(String(init.body));
+      const fromDate = request.params.payload.params.fromDate;
+      if (fromDate === '2026-08-12') return new Response('', { status: 400 });
+      return new Response(JSON.stringify({
+        result: { payload: { result: { data: { 'meter0/Energy': 120 } } } },
+      }), { status: 200 });
+    });
+    const client = createOpenEmsClient(
+      { baseUrl: 'https://openems.example.test', username: 'worker', password: 'secret', timeoutMs: 1000 },
+      { fetchImpl },
+    );
+
+    await expect(client.queryDailyEnergy({
+      edgeId: 'edge0',
+      channel: 'meter0/Energy',
+      fromDate: '2026-08-12',
+      toDate: '2026-08-13',
+      timezone: 'Africa/Kampala',
+      currentDate: '2026-08-14',
+      historyStartDate: '2026-08-13',
+    })).resolves.toEqual([
+      { date: '2026-08-12', value: null },
+      { date: '2026-08-13', value: 120 },
+    ]);
+
+    await expect(client.queryDailyEnergy({
+      edgeId: 'edge0',
+      channel: 'meter0/Energy',
+      fromDate: '2026-08-12',
+      toDate: '2026-08-12',
+      timezone: 'Africa/Kampala',
+      currentDate: '2026-08-14',
+    })).rejects.toThrow('HTTP 400');
+  });
+
+  it('rejects unavailable days after history has begun', async () => {
+    const fetchImpl = vi.fn(async (_url: string, init: RequestInit) => {
+      const request = JSON.parse(String(init.body));
+      const fromDate = request.params.payload.params.fromDate;
+      if (fromDate === '2026-08-14') return new Response('', { status: 400 });
+      return new Response(JSON.stringify({
+        result: { payload: { result: { data: { 'meter0/Energy': 120 } } } },
+      }), { status: 200 });
+    });
+    const client = createOpenEmsClient(
+      { baseUrl: 'https://openems.example.test', username: 'worker', password: 'secret', timeoutMs: 1000 },
+      { fetchImpl },
+    );
+
+    await expect(client.queryDailyEnergy({
+      edgeId: 'edge0',
+      channel: 'meter0/Energy',
+      fromDate: '2026-08-13',
+      toDate: '2026-08-14',
+      timezone: 'Africa/Kampala',
+      currentDate: '2026-08-14',
+    })).rejects.toThrow('HTTP 400');
+  });
+
   it('surfaces nested JSON-RPC failures', async () => {
     const client = createOpenEmsClient(
       { baseUrl: 'https://openems.example.test', username: 'worker', password: 'secret', timeoutMs: 1000 },

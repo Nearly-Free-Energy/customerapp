@@ -58,6 +58,7 @@ export async function syncOpenEmsMeter(meterSource, options = {}) {
     toDate,
     timezone,
     currentDate: today,
+    historyStartDate: meterSource.openems_history_start_date,
   });
 
   const syncedAt = now.toISOString();
@@ -136,7 +137,7 @@ export function addIsoDays(date, days) {
 async function loadOpenEmsMeterSources(client) {
   const { data, error } = await client
     .from('meter_sources')
-    .select('id, utility_service_id, meter_id, timezone, openems_edge_id, openems_energy_channel')
+    .select('id, utility_service_id, meter_id, timezone, openems_edge_id, openems_energy_channel, openems_history_start_date')
     .eq('source_type', 'openems')
     .eq('status', 'active');
   if (error) throw new Error(`Unable to load OpenEMS meter mappings: ${error.message}`);
@@ -146,7 +147,7 @@ async function loadOpenEmsMeterSources(client) {
 async function loadOpenEmsMeterSourceForService(serviceId, client) {
   const { data, error } = await client
     .from('meter_sources')
-    .select('id, utility_service_id, meter_id, timezone, openems_edge_id, openems_energy_channel')
+    .select('id, utility_service_id, meter_id, timezone, openems_edge_id, openems_energy_channel, openems_history_start_date')
     .eq('utility_service_id', serviceId)
     .eq('source_type', 'openems')
     .eq('status', 'active')

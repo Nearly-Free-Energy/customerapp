@@ -2,8 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { discoverOpenEmsMeter } from '../server/openems-discovery.js';
 
 describe('OpenEMS discovery', () => {
-  it('marks the current Kampala day as a partial range', async () => {
-    const queryDailyEnergy = vi.fn(async () => [{ date: '2026-08-14', value: 100 }]);
+  it('recomputes the history boundary when saving a mapping', async () => {
+    const queryRangeEnergy = vi.fn(async ({ fromDate }: { fromDate: string }) => (
+      fromDate >= '2026-08-13' ? 100 : null
+    ));
+    let updatePayload: Record<string, unknown> | null = null;
     const updateResult = {
       eq: () => ({
         select: () => ({
@@ -12,7 +15,12 @@ describe('OpenEMS discovery', () => {
       }),
     };
     const client = {
-      from: () => ({ update: () => updateResult }),
+      from: () => ({
+        update: (payload: Record<string, unknown>) => {
+          updatePayload = payload;
+          return updateResult;
+        },
+      }),
     };
 
     await discoverOpenEmsMeter({
@@ -27,13 +35,13 @@ describe('OpenEMS discovery', () => {
         getEdgeConfig: vi.fn(async () => ({
           components: { meter0: { channels: { Energy: { unit: 'Wh' } } } },
         })),
-        queryDailyEnergy,
+        queryRangeEnergy,
       },
     });
 
-    expect(queryDailyEnergy).toHaveBeenCalledWith(expect.objectContaining({
-      toDate: '2026-08-14',
-      currentDate: '2026-08-14',
+    expect(queryRangeEnergy).toHaveBeenCalled();
+    expect(updatePayload).toEqual(expect.objectContaining({
+      openems_history_start_date: '2026-08-13',
     }));
   });
 });

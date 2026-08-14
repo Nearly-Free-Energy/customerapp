@@ -14,7 +14,7 @@ if (!meterId || !fromDate) {
 const client = createServerSupabaseClient();
 const { data: meterSource, error } = await client
   .from('meter_sources')
-  .select('id, utility_service_id, meter_id, timezone, openems_edge_id, openems_energy_channel')
+  .select('id, utility_service_id, meter_id, timezone, openems_edge_id, openems_energy_channel, openems_history_start_date')
   .eq('meter_id', meterId)
   .eq('source_type', 'openems')
   .eq('status', 'active')

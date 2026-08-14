@@ -22,17 +22,22 @@ export async function discoverOpenEmsMeter(input, options = {}) {
     for (const candidate of candidates) {
       if (!['wh', 'kwh'].includes(candidate.unit.toLowerCase())) continue;
       try {
-        const readings = await openEmsClient.queryDailyEnergy({
+        const readings = await probeCandidateHistory(openEmsClient, {
           edgeId,
           channel: candidate.address,
           fromDate: addIsoDays(today, -30),
           toDate: today,
           timezone,
-          currentDate: today,
         });
         const values = readings.filter((reading) => typeof reading.value === 'number' && reading.value >= 0);
         if (values.length > 0) {
-          validatedCandidates.push({ ...candidate, edgeId, sampleDays: values.length, latestValue: values.at(-1).value });
+          validatedCandidates.push({
+            ...candidate,
+            edgeId,
+            historyStartDate: values[0].date,
+            sampleDays: values.length,
+            latestValue: values.at(-1).value,
+          });
         }
       } catch {
         // Candidate probing is best-effort; invalid historic channels are excluded.
@@ -57,18 +62,43 @@ export async function discoverOpenEmsMeter(input, options = {}) {
       source_type: 'openems',
       openems_edge_id: selected.edgeId,
       openems_energy_channel: selected.address,
+      openems_history_start_date: selected.historyStartDate,
       timezone,
       last_error: null,
       updated_at: new Date().toISOString(),
     })
     .eq('meter_id', input.meterId.trim())
-    .select('id, utility_service_id, meter_id, openems_edge_id, openems_energy_channel, timezone')
+    .select('id, utility_service_id, meter_id, openems_edge_id, openems_energy_channel, openems_history_start_date, timezone')
     .maybeSingle();
 
   if (error) throw new Error(`Unable to save the OpenEMS meter mapping: ${error.message}`);
   if (!data) throw new Error(`No meter source exists for meter ${input.meterId}.`);
 
   return { meterId: input.meterId, saved: true, selected, mapping: data, candidates: validatedCandidates };
+}
+
+async function probeCandidateHistory(openEmsClient, { edgeId, channel, fromDate, toDate, timezone }) {
+  const readings = [];
+  let historyStarted = false;
+
+  for (let date = fromDate; date <= toDate; date = addIsoDays(date, 1)) {
+    try {
+      const value = await openEmsClient.queryRangeEnergy({
+        edgeId,
+        channel,
+        fromDate: date,
+        toDate: date === toDate ? date : addIsoDays(date, 1),
+        timezone,
+      });
+      if (value !== null) historyStarted = true;
+      readings.push({ date, value });
+    } catch (error) {
+      const isUnavailable = error instanceof OpenEmsError && error.code === 'HTTP_ERROR' && error.status === 400;
+      if (!isUnavailable || historyStarted) throw error;
+    }
+  }
+
+  return readings;
 }
 
 function findChannelUnit(edgeConfig, address) {
