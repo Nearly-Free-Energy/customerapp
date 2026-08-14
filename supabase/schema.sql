@@ -90,6 +90,7 @@ create table if not exists meter_sources (
   status text not null default 'active',
   openems_edge_id text,
   openems_energy_channel text,
+  openems_history_start_date date,
   last_successful_import_at timestamptz,
   last_imported_file text,
   last_error text,
