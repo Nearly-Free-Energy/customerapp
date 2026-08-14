@@ -77,9 +77,29 @@ describe('OpenEMS synchronization', () => {
     const client = createWriteClient();
     await syncOpenEmsMeter(meterSource, {
       client,
-      openEmsClient: { queryDailyEnergy: vi.fn(async () => [{ date: '2026-08-05', value: null }]) },
+      openEmsClient: {
+        queryDailyEnergy: vi.fn(async () => [{ date: '2026-08-05', value: null }]),
+        queryRangeEnergy: vi.fn(async () => null),
+      },
     });
     expect(client.state.snapshots).toEqual([]);
+  });
+
+  it('uses range energy when a new channel has no daily boundary yet', async () => {
+    const client = createWriteClient();
+    const result = await syncOpenEmsMeter(meterSource, {
+      client,
+      now: new Date('2026-08-14T10:00:00Z'),
+      openEmsClient: {
+        queryDailyEnergy: vi.fn(async () => []),
+        queryRangeEnergy: vi.fn(async () => 125),
+      },
+    });
+
+    expect(result.updatedDays).toBe(1);
+    expect(client.state.snapshots).toEqual([
+      expect.objectContaining({ usage_date: '2026-08-14', usage_kwh: 0.125, is_partial: true }),
+    ]);
   });
 
   it('continues with other meters and records a per-meter failure', async () => {

@@ -47,13 +47,26 @@ export async function syncOpenEmsMeter(meterSource, options = {}) {
   const fromDate = options.fromDate ?? addIsoDays(today, -(options.overlapDays ?? DEFAULT_OVERLAP_DAYS));
   const toDate = options.toDate ?? today;
 
-  const readings = await openEmsClient.queryDailyEnergy({
+  let readings = await openEmsClient.queryDailyEnergy({
     edgeId: meterSource.openems_edge_id,
     channel: meterSource.openems_energy_channel,
     fromDate,
     toDate,
     timezone,
   });
+
+  if (toDate === today && !readings.some((reading) => reading.date === today && reading.value !== null)) {
+    const currentDayEnergy = await openEmsClient.queryRangeEnergy({
+      edgeId: meterSource.openems_edge_id,
+      channel: meterSource.openems_energy_channel,
+      fromDate: today,
+      toDate: today,
+      timezone,
+    });
+    if (currentDayEnergy !== null) {
+      readings = [...readings.filter((reading) => reading.date !== today), { date: today, value: currentDayEnergy }];
+    }
+  }
 
   const syncedAt = now.toISOString();
   const snapshots = readings.flatMap((reading) => {
