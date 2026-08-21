@@ -87,7 +87,7 @@ async function probeCandidateHistory(openEmsClient, { edgeId, channel, fromDate,
         edgeId,
         channel,
         fromDate: date,
-        toDate: date === toDate ? date : addIsoDays(date, 1),
+        toDate: date,
         timezone,
       });
       if (value !== null) historyStarted = true;
