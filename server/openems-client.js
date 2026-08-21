@@ -120,7 +120,7 @@ export function createOpenEmsClient(config = resolveOpenEmsConfig(), options = {
     return parseRangeEnergyResponse(result, channel);
   }
 
-  async function queryDailyRanges({ edgeId, channel, fromDate, toDate, timezone, currentDate, historyStartDate }) {
+  async function queryDailyRanges({ edgeId, channel, fromDate, toDate, timezone, historyStartDate }) {
     const dates = listIsoDates(fromDate, toDate);
     const readings = [];
 
@@ -132,7 +132,7 @@ export function createOpenEmsClient(config = resolveOpenEmsConfig(), options = {
             edgeId,
             channel,
             fromDate: date,
-            toDate: date === currentDate ? date : addIsoDays(date, 1),
+            toDate: date,
             timezone,
           });
           return { date, value };
@@ -165,9 +165,9 @@ export function createOpenEmsClient(config = resolveOpenEmsConfig(), options = {
       return callEdge(edgeId, 'getEdgeConfig', {});
     },
 
-    async queryDailyEnergy({ edgeId, channel, fromDate, toDate, timezone, currentDate, historyStartDate }) {
+    async queryDailyEnergy({ edgeId, channel, fromDate, toDate, timezone, historyStartDate }) {
       try {
-        return await queryDailyRanges({ edgeId, channel, fromDate, toDate, timezone, currentDate, historyStartDate });
+        return await queryDailyRanges({ edgeId, channel, fromDate, toDate, timezone, historyStartDate });
       } catch (error) {
         const canUseCompatibilityFallback = error instanceof OpenEmsError && error.code === 'HTTP_ERROR' && error.status === 400;
         if (!canUseCompatibilityFallback) throw error;

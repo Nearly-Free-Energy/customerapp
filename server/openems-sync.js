@@ -57,7 +57,6 @@ export async function syncOpenEmsMeter(meterSource, options = {}) {
     fromDate,
     toDate,
     timezone,
-    currentDate: today,
     historyStartDate: meterSource.openems_history_start_date,
   });
 

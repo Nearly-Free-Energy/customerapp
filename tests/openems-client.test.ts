@@ -34,7 +34,6 @@ describe('OpenEMS JSON-RPC client', () => {
       fromDate: '2026-08-05',
       toDate: '2026-08-05',
       timezone: 'Africa/Kampala',
-      currentDate: '2026-08-06',
     });
 
     expect(result).toEqual([{ date: '2026-08-05', value: 1250 }]);
@@ -54,7 +53,7 @@ describe('OpenEMS JSON-RPC client', () => {
           method: 'queryHistoricTimeseriesEnergy',
           params: {
             fromDate: '2026-08-05',
-            toDate: '2026-08-06',
+            toDate: '2026-08-05',
             timezone: 'Africa/Kampala',
           },
         },
@@ -85,7 +84,6 @@ describe('OpenEMS JSON-RPC client', () => {
       fromDate: '2026-08-13',
       toDate: '2026-08-14',
       timezone: 'Africa/Kampala',
-      currentDate: '2026-08-14',
     })).resolves.toEqual([
       { date: '2026-08-13', value: 120 },
       { date: '2026-08-14', value: 30 },
@@ -93,9 +91,45 @@ describe('OpenEMS JSON-RPC client', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
     const requests = fetchImpl.mock.calls.map((call) => JSON.parse(String(call[1].body)).params.payload.params);
     expect(requests).toEqual(expect.arrayContaining([
-      expect.objectContaining({ fromDate: '2026-08-13', toDate: '2026-08-14' }),
+      expect.objectContaining({ fromDate: '2026-08-13', toDate: '2026-08-13' }),
       expect.objectContaining({ fromDate: '2026-08-14', toDate: '2026-08-14' }),
     ]));
+    // OpenEMS treats toDate as inclusive: every requested day is a single
+    // inclusive range (fromDate === toDate), never a two-day [date, date+1] window.
+    for (const req of requests) expect(req.toDate).toBe(req.fromDate);
+  });
+
+  // JUSTIFICATION-A3: new regression Aaron requested on #30 — prove each requested
+  // date contributes exactly one day (would fail under the old toDate=date+1 bug).
+  it('counts each requested day exactly once (no inclusive-range double count)', async () => {
+    // Mock returns the number of whole days OpenEMS would sum for the requested
+    // inclusive [fromDate, toDate] range. The correct one-day query yields 1 per
+    // day; the old toDate=date+1 bug would yield 2 (this day + the next).
+    const fetchImpl = vi.fn(async (_url: string, init: RequestInit) => {
+      const p = JSON.parse(String(init.body)).params.payload.params;
+      const days = Math.round(
+        (Date.parse(`${p.toDate}T00:00:00Z`) - Date.parse(`${p.fromDate}T00:00:00Z`)) / 86_400_000,
+      ) + 1; // inclusive day count
+      return new Response(JSON.stringify({
+        result: { payload: { result: { data: { 'meter0/Energy': days } } } },
+      }), { status: 200 });
+    });
+    const client = createOpenEmsClient(
+      { baseUrl: 'https://openems.example.test', username: 'worker', password: 'secret', timeoutMs: 1000 },
+      { fetchImpl },
+    );
+
+    const readings = await client.queryDailyEnergy({
+      edgeId: 'edge0',
+      channel: 'meter0/Energy',
+      fromDate: '2026-08-13',
+      toDate: '2026-08-16',
+      timezone: 'Africa/Kampala',
+    });
+
+    // Four days, each contributing exactly one day of energy — total 4, not ~8.
+    expect(readings.map((r) => r.value)).toEqual([1, 1, 1, 1]);
+    expect(readings.reduce((sum, r) => sum + (r.value ?? 0), 0)).toBe(4);
   });
 
   it('skips only unavailable days proven to predate history', async () => {
@@ -118,7 +152,6 @@ describe('OpenEMS JSON-RPC client', () => {
       fromDate: '2026-08-12',
       toDate: '2026-08-13',
       timezone: 'Africa/Kampala',
-      currentDate: '2026-08-14',
       historyStartDate: '2026-08-13',
     })).resolves.toEqual([
       { date: '2026-08-12', value: null },
@@ -131,7 +164,6 @@ describe('OpenEMS JSON-RPC client', () => {
       fromDate: '2026-08-12',
       toDate: '2026-08-12',
       timezone: 'Africa/Kampala',
-      currentDate: '2026-08-14',
     })).rejects.toThrow('HTTP 400');
   });
 
@@ -155,7 +187,6 @@ describe('OpenEMS JSON-RPC client', () => {
       fromDate: '2026-08-13',
       toDate: '2026-08-14',
       timezone: 'Africa/Kampala',
-      currentDate: '2026-08-14',
     })).rejects.toThrow('HTTP 400');
   });
 
@@ -187,7 +218,6 @@ describe('OpenEMS JSON-RPC client', () => {
       fromDate: '2026-08-13',
       toDate: '2026-08-14',
       timezone: 'Africa/Kampala',
-      currentDate: '2026-08-14',
     })).resolves.toEqual([
       { date: '2026-08-13', value: 250 },
       { date: '2026-08-14', value: 20 },
