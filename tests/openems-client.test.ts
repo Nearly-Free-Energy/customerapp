@@ -132,7 +132,7 @@ describe('OpenEMS JSON-RPC client', () => {
     expect(readings.reduce((sum, r) => sum + (r.value ?? 0), 0)).toBe(4);
   });
 
-  it('skips only unavailable days proven to predate history', async () => {
+  it('returns unavailable days as null without requiring history metadata', async () => {
     const fetchImpl = vi.fn(async (_url: string, init: RequestInit) => {
       const request = JSON.parse(String(init.body));
       const fromDate = request.params.payload.params.fromDate;
@@ -152,22 +152,13 @@ describe('OpenEMS JSON-RPC client', () => {
       fromDate: '2026-08-12',
       toDate: '2026-08-13',
       timezone: 'Africa/Kampala',
-      historyStartDate: '2026-08-13',
     })).resolves.toEqual([
       { date: '2026-08-12', value: null },
       { date: '2026-08-13', value: 120 },
     ]);
-
-    await expect(client.queryDailyEnergy({
-      edgeId: 'edge0',
-      channel: 'meter0/Energy',
-      fromDate: '2026-08-12',
-      toDate: '2026-08-12',
-      timezone: 'Africa/Kampala',
-    })).rejects.toThrow('HTTP 400');
   });
 
-  it('rejects unavailable days after history has begun', async () => {
+  it('returns gaps after history has begun without discarding available days', async () => {
     const fetchImpl = vi.fn(async (_url: string, init: RequestInit) => {
       const request = JSON.parse(String(init.body));
       const fromDate = request.params.payload.params.fromDate;
@@ -187,7 +178,63 @@ describe('OpenEMS JSON-RPC client', () => {
       fromDate: '2026-08-13',
       toDate: '2026-08-14',
       timezone: 'Africa/Kampala',
-    })).rejects.toThrow('HTTP 400');
+      historyStartDate: '2026-08-13',
+    })).resolves.toEqual([
+      { date: '2026-08-13', value: 120 },
+      { date: '2026-08-14', value: null },
+    ]);
+  });
+
+  it('returns null daily readings when the period fallback confirms no data', async () => {
+    const fetchImpl = vi.fn(async (_url: string, init: RequestInit) => {
+      const request = JSON.parse(String(init.body));
+      if (request.params.payload.method === 'queryHistoricTimeseriesEnergy') {
+        return new Response('', { status: 400 });
+      }
+      return new Response(JSON.stringify({
+        result: {
+          payload: {
+            result: {
+              timestamps: ['2026-08-12T21:00:00Z', '2026-08-13T21:00:00Z'],
+              data: { 'meter0/Energy': [null, null] },
+            },
+          },
+        },
+      }), { status: 200 });
+    });
+    const client = createOpenEmsClient(
+      { baseUrl: 'https://openems.example.test', username: 'worker', password: 'secret', timeoutMs: 1000 },
+      { fetchImpl },
+    );
+
+    await expect(client.queryDailyEnergy({
+      edgeId: 'edge0',
+      channel: 'meter0/Energy',
+      fromDate: '2026-08-13',
+      toDate: '2026-08-14',
+      timezone: 'Africa/Kampala',
+    })).resolves.toEqual([
+      { date: '2026-08-13', value: null },
+      { date: '2026-08-14', value: null },
+    ]);
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+  });
+
+  it('still surfaces non-gap HTTP failures', async () => {
+    const fetchImpl = vi.fn(async () => new Response('', { status: 500 }));
+    const client = createOpenEmsClient(
+      { baseUrl: 'https://openems.example.test', username: 'worker', password: 'secret', timeoutMs: 1000 },
+      { fetchImpl },
+    );
+
+    await expect(client.queryDailyEnergy({
+      edgeId: 'edge0',
+      channel: 'meter0/Energy',
+      fromDate: '2026-08-13',
+      toDate: '2026-08-13',
+      timezone: 'Africa/Kampala',
+    })).rejects.toThrow('HTTP 500');
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
   it('uses period data when a mapped channel rejects daily ranges', async () => {

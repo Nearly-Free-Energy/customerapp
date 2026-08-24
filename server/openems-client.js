@@ -120,9 +120,10 @@ export function createOpenEmsClient(config = resolveOpenEmsConfig(), options = {
     return parseRangeEnergyResponse(result, channel);
   }
 
-  async function queryDailyRanges({ edgeId, channel, fromDate, toDate, timezone, historyStartDate }) {
+  async function queryDailyRanges({ edgeId, channel, fromDate, toDate, timezone }) {
     const dates = listIsoDates(fromDate, toDate);
     const readings = [];
+    let unavailableError = null;
 
     for (let index = 0; index < dates.length; index += DAILY_RANGE_CONCURRENCY) {
       const batch = dates.slice(index, index + DAILY_RANGE_CONCURRENCY);
@@ -137,8 +138,8 @@ export function createOpenEmsClient(config = resolveOpenEmsConfig(), options = {
           });
           return { date, value };
         } catch (error) {
-          const predatesHistory = historyStartDate && date < historyStartDate;
-          if (predatesHistory && error instanceof OpenEmsError && error.code === 'HTTP_ERROR' && error.status === 400) {
+          if (error instanceof OpenEmsError && error.code === 'HTTP_ERROR' && error.status === 400) {
+            unavailableError ??= error;
             return { date, value: null };
           }
           throw error;
@@ -146,7 +147,7 @@ export function createOpenEmsClient(config = resolveOpenEmsConfig(), options = {
       })));
     }
 
-    return readings;
+    return { readings, unavailableError };
   }
 
   async function queryPeriodEnergy({ edgeId, channel, fromDate, toDate, timezone }) {
@@ -165,20 +166,18 @@ export function createOpenEmsClient(config = resolveOpenEmsConfig(), options = {
       return callEdge(edgeId, 'getEdgeConfig', {});
     },
 
-    async queryDailyEnergy({ edgeId, channel, fromDate, toDate, timezone, historyStartDate }) {
-      try {
-        return await queryDailyRanges({ edgeId, channel, fromDate, toDate, timezone, historyStartDate });
-      } catch (error) {
-        const canUseCompatibilityFallback = error instanceof OpenEmsError && error.code === 'HTTP_ERROR' && error.status === 400;
-        if (!canUseCompatibilityFallback) throw error;
+    async queryDailyEnergy({ edgeId, channel, fromDate, toDate, timezone }) {
+      const dailyResult = await queryDailyRanges({ edgeId, channel, fromDate, toDate, timezone });
+      if (!dailyResult.unavailableError || dailyResult.readings.some((reading) => typeof reading.value === 'number')) {
+        return dailyResult.readings;
+      }
 
-        try {
-          const readings = await queryPeriodEnergy({ edgeId, channel, fromDate, toDate, timezone });
-          if (!readings.some((reading) => typeof reading.value === 'number')) throw error;
-          return readings;
-        } catch {
-          throw error;
-        }
+      try {
+        const periodReadings = await queryPeriodEnergy({ edgeId, channel, fromDate, toDate, timezone });
+        if (periodReadings.some((reading) => typeof reading.value === 'number')) return periodReadings;
+        return dailyResult.readings;
+      } catch {
+        throw dailyResult.unavailableError;
       }
     },
 
