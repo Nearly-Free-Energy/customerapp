@@ -122,15 +122,21 @@ export function summarizePeriod(
   const lifelineEligible = isLifelineEligible(completeMonthlyTotals(usagePoints, today));
   const currentUsageCashUgx = calculateCurrentUsageCashUgx(usagePoints, today, billingMonthAnchor, lifelineEligible);
 
-  // Use the last 5 fully-measured days (rolling window) for the daily pace.
-  // This avoids zero days from before the customer joined skewing the average.
-  // On the last day of the month remaining days = 0, so estimate = current bill automatically.
+  // Use the last 7 fully-measured days (rolling window) for the daily pace.
+  // At the start of a month, fall back to recent mature history from the prior month.
   const recentDays = [...measuredDays]
     .filter((day) => day.date.getTime() <= fullyMeasuredCutoff.getTime())
     .sort((a, b) => b.date.getTime() - a.date.getTime())
     .slice(0, 7);
-  const recentUsage = recentDays.reduce((sum, day) => sum + (day.usageValue ?? 0), 0);
-  const activeDailyAverage = recentDays.length > 0 ? recentUsage / recentDays.length : 0;
+  const paceDays = recentDays.length > 0
+    ? recentDays
+    : usagePoints
+        .filter((point) => point.unit === 'kWh' && point.usageValue !== null && point.isFuture !== true && point.isPartial !== true)
+        .filter((point) => parseIsoDate(point.date).getTime() <= fullyMeasuredCutoff.getTime())
+        .sort((a, b) => b.date.localeCompare(a.date))
+        .slice(0, 7);
+  const recentUsage = paceDays.reduce((sum, day) => sum + (day.usageValue ?? 0), 0);
+  const activeDailyAverage = paceDays.length > 0 ? recentUsage / paceDays.length : 0;
 
   return {
     totalUsage: roundToTwo(totalUsage),
@@ -167,7 +173,8 @@ export function calculateEstimatedMonthlyBillUgx(
   lifelineEligible = true,
 ): number {
   const daysInMonth = endOfMonth(billingMonthAnchor).getDate();
-  const remainingDays = Math.max(0, daysInMonth - today.getDate());
+  const isCurrentMonth = billingMonthAnchor.getFullYear() === today.getFullYear() && billingMonthAnchor.getMonth() === today.getMonth();
+  const remainingDays = isCurrentMonth ? Math.max(0, daysInMonth - today.getDate()) : 0;
   return calculateBillUgx(currentUsageKwh + averageDailyUsage * remainingDays, lifelineEligible, billingMonthAnchor);
 }
 
