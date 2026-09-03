@@ -129,6 +129,30 @@ describe('usage billing helpers', () => {
     // April (30 days): same pace but 15 remaining days → 15 kWh projected (one less day)
     expect(calculateEstimatedMonthlyBillUgx(0, 1, new Date(2026, 3, 1), new Date(2026, 3, 15))).toBe(13063);
   });
+
+  it('does not project additional usage for a completed historical month', () => {
+    expect(calculateEstimatedMonthlyBillUgx(165.64, 5.316, new Date(2026, 7, 1), new Date(2026, 8, 2))).toBe(121258);
+  });
+
+  it('uses recent mature history when the current month has no mature days yet', () => {
+    const recentHistory = Array.from({ length: 7 }, (_, index) => buildPoint(`2026-08-${25 + index}`, 4));
+    const currentMonth = [buildPoint('2026-09-01', 5), buildPoint('2026-09-02', 2)];
+    const summary = summarizePeriod(
+      currentMonth.map((point) => ({
+        date: new Date(`${point.date}T00:00:00`),
+        key: point.date,
+        usageValue: point.usageValue,
+        unit: point.unit,
+        isFuture: false,
+      })),
+      [...recentHistory, ...currentMonth],
+      new Date(2026, 8, 2),
+      new Date(2026, 8, 1),
+    );
+
+    expect(summary.currentUsageCashUgx).toBe(10703);
+    expect(summary.estimatedMonthlyBillUgx).toBe(91803);
+  });
 });
 
 // --- Lifeline 6-month rolling average (#16) ---------------------------------
