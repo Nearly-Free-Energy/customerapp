@@ -2,6 +2,15 @@
 
 App for customers and microgrid managers to monitor electricity usage.
 
+> **Retired on 24 November 2026.** Tenants now see their electricity use in
+> MGM, Nearly Free Energy's microgrid manager: sign in at
+> <https://mgm.nearlyfreeenergy.com> with the email address your
+> organization gave access to. The tenant app is MGM's `tenant-app` plugin
+> ([RFC Nearly-Free-Energy/mgm#197](https://github.com/Nearly-Free-Energy/mgm/issues/197)).
+> `portal.nearlyfreeenergy.com` now redirects to MGM. This app's hosting and
+> database have been deleted, so nothing described below is running any
+> more, and this repository is archived.
+
 ## Local development
 
 Install dependencies and start the Vite dev server:
